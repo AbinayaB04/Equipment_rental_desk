@@ -13,7 +13,11 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "-ra"
+addopts = "-ra -m 'not m2_spec'"
+markers = [
+    "m2_spec: Business-rule specification contracts to be implemented in M2",
+    "integration: PostgreSQL integration tests",
+]
 
 [tool.coverage.run]
 source = ["app"]

@@ -53,8 +53,8 @@ These are implementation plans, not claims that all handlers already exist. Befo
 
 | Milestone | Date completed | Commit hash |
 |---|---|---|
-| M0 Scaffold | Pending final commit | To be added |
-| M1 Domain model | Not completed | — |
+| M0 Scaffold | 2026-10-17 | 2f56c06 |
+| M1 Domain model | In progress | Pending review |
 | M2 Business rules | Not completed | — |
 | M3 API | Not completed | — |
 | M4 UI | Not completed | — |

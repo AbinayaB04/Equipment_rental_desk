@@ -38,7 +38,7 @@ These are local development URLs, not publicly deployed services.
 |---|---|
 | Backend | Python 3.12, FastAPI, Pydantic |
 | Database | PostgreSQL 16 |
-| Database access and migrations | SQLAlchemy 2.x and Alembic — planned for M1 |
+| Database access and migrations | SQLAlchemy 2.0, Alembic, and Psycopg (implemented in M1) |
 | Frontend | React 18, TypeScript, Vite |
 | Backend testing | pytest, pytest-cov, FastAPI TestClient |
 | Linting and formatting | Ruff |
@@ -189,6 +189,8 @@ cd D:\files\KJBN\Equipment_rental_desk\backend
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements-dev.txt
+alembic upgrade head
+python -m scripts.seed
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -226,13 +228,13 @@ The repository contains `.env.example` as a template. Keep real credentials and 
 | Variable | Purpose | Status |
 |---|---|---|
 | `APP_ENV` | Application environment, such as development, test, or production | M0 |
-| `DATABASE_URL` | PostgreSQL connection string | Database integration planned for M1 |
+| `DATABASE_URL` | PostgreSQL connection string | Implemented in M1 |
 | `CORS_ORIGINS` | Comma-separated list of permitted browser origins | M0 |
 | `LOG_LEVEL` | Application logging level | M0 |
-| `POSTGRES_USER` | Local PostgreSQL username | M0 |
-| `POSTGRES_PASSWORD` | Local PostgreSQL password | M0 |
-| `POSTGRES_DB` | Local PostgreSQL database name | M0 |
-| `DB_PORT` | Host port mapped to PostgreSQL | M0 |
+| `POSTGRES_USER` | Local PostgreSQL username | M1 |
+| `POSTGRES_PASSWORD` | Local PostgreSQL password | M1 |
+| `POSTGRES_DB` | Local PostgreSQL database name | M1 |
+| `DB_PORT` | Host port mapped to PostgreSQL | M1 |
 | `VITE_API_BASE_URL` | Backend URL used by the frontend | M0 |
 | `ALLOW_TEST_CLOCK` | Enables the reviewer-controlled test clock | Planned for M3 |
 | `TEST_CLOCK_KEY` | Authorization key for test-clock use where required | Planned for M3 |
@@ -265,9 +267,15 @@ ruff format --check .
 pytest -q
 ```
 
-The initial M0 scaffold has been verified with six passing tests. This is the initial scaffold test suite, not the final business-rule test suite.
+The default test run executes **14 passing tests** (3 API health checks, 3 environment configuration checks, and 8 PostgreSQL schema constraint tests verifying check constraints and foreign key rules).
 
-One dependency-related deprecation warning may appear during testing.
+To inspect the M2 business-rule behavioral specification contracts:
+
+```powershell
+pytest tests/unit/test_business_rules_spec.py -m m2_spec
+```
+
+*Note on M2 specifications:* These 16 behavioral specification tests define the business rule contracts for Milestone 2. They are expected to fail until M2 implements the service layer, and are excluded from the default M1 test run to prevent breaking test collection.
 
 ### Frontend build
 
@@ -346,18 +354,18 @@ The following table records the planned rules. They are design decisions and are
 
 ### Documented assumptions
 
-1. **Reservation expiry:** A reservation is live while `now < reserved_at + 48 hours`. At the exact expiry instant, it is expired.
-2. **Late-fee calculation:** The elapsed time after `due_at` is divided into 24-hour periods and rounded up. One second late counts as one day; exactly 24 hours late counts as one day; 24 hours and one second late counts as two days. This is an explicit assumption because the assignment does not clearly specify calendar-day boundaries. The calculation will be isolated so it can be changed if required.
+1. **Reservation expiry:** A reservation holds an item for 48 hours. A reservation is valid at 47 hours 59 minutes and expired at exactly 48 hours (`now >= reserved_at + 48 hours`). An expired reservation's stored item status may temporarily remain `RESERVED` until M2 read/write logic reconciles it, but it is treated as effectively `AVAILABLE` on read and cannot be checked out.
+2. **Late-fee calculation:** As an explicit interpretation of "calendar days, rounded up" for continuous timestamps, elapsed time past `due_at` is divided into 24-hour periods and rounded up. At `due_at` (0s overdue), fee is ₹0; 1 second overdue incurs 1 day (₹10); exactly 24 hours late incurs 1 day (₹10); 24 hours and 1 second late incurs 2 days (₹20). The fee is capped at ₹200 (20,000 paise) and never exceeds the item's replacement value.
 3. **Due date:** The due time is the check-out time plus exactly seven days.
 4. **Outstanding fees:** An overdue loan does not add its late fee to the member balance until it is returned.
 5. **Balance:** The balance is derived from returned-loan fees minus payments. Overpayments are rejected; credit balances are not created.
-6. **Maintenance:** A reservation is cancelled when its item enters maintenance. An already checked-out loan remains open and can be returned. The item stays in maintenance until staff restore it.
+6. **Maintenance:** When an item enters maintenance: if the item was `RESERVED`, the reservation is cancelled (`Loan.status = CANCELLED`, `cancelled_at = now`). If the item was `CHECKED_OUT`, the open loan remains valid and returnable. Upon return, late fees (if any) are assessed and the loan is closed, but the item remains `UNDER_MAINTENANCE` until staff restores it to `AVAILABLE`.
 7. **Active-loan limit:** The limit is checked at reservation time. Checking out an existing reservation does not add another active loan.
 8. **Long-overdue threshold:** A loan blocks borrowing only when it is overdue by more than 14 days; exactly 14 days does not exceed the threshold.
 9. **Eligibility:** Eligibility is checked at reservation and checked again at check-out.
 10. **Deletion:** Members and items with associated loans or payments cannot be deleted; the planned API returns a conflict response.
 11. **Authentication:** Authentication is not included in the M0 scaffold. Staff operations are planned as ordinary API endpoints unless the assignment requires otherwise.
-12. **Phone numbers:** Phone numbers are planned to be unique and ten digits, subject to the assignment specification.
+12. **Phone numbers:** Member phone numbers are stored as strings without arbitrary database-level uniqueness or regex format constraints, as the assignment does not require phone uniqueness across members (e.g. household members sharing a contact number).
 13. **Monotonic clock guard:** History-changing item operations compare the request time with the latest relevant loan event timestamps and `maintenance_changed_at`. Earlier times are rejected. Read-only requests, payments, suspensions, and ordinary CRUD edits are not subject to this guard.
 14. **Restore behavior:** Restoring an item must first settle an expired reservation in the same transaction and must not fail solely because an expired reservation row still has stored status `reserved`.
 15. **Expired reservations:** Expired reservations must not count towards the active-loan limit or prevent a new reservation once they have been safely settled.
