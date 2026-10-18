@@ -988,7 +988,7 @@ Do not commit, push, or start M2. Do not make unrelated refactors. Show the actu
 - **Tool:** Google Antigravity
 - **Date:** 2026-10-17
 - **Prompt:** Approval of M1 review with pre-commit checklist (review staged diff, confirm prompt log, run git diff --cached --check, exclude generated/secret files) and instruction to create the M1 milestone commit using Conventional Commit format with [M1], verify status, and push to main. Full prompt below.
-- **Answer:** Created M1 milestone commit feat(domain): [M1] implement domain models, migrations, and seed data, verified git status and commit, and pushed to origin/main.
+- **Answer:** Created M1 milestone commit feat: [M1] implement domain models, migrations, and seed data, verified git status and commit, and pushed to origin/main.
 - **What I did:** Used as-is to stage, commit, and push Milestone 1.
 
 <details>
@@ -1005,5 +1005,150 @@ Before committing:
 Then create the M1 milestone commit using the repository's Conventional Commit format, including `[M1]` in the commit message. Verify the commit and working-tree status, and push it to the existing `main` branch.
 
 Do not start M2. Report the exact commit hash, push result, and final Git status.
+
+</details>
+
+## Entry 25
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-17
+- **Prompt:** Authorization to start Milestone 2 (M2 — Business Rules) with instructions to summarize required rules, identify missing tests, propose a service/domain architecture, implement pure business logic with integer paise and UTC timestamps, handle concurrent double checkout with locking/transactions, and add comprehensive boundary/failure tests without touching M3/M4/M5 or committing. Full prompt below.
+- **Answer:** Audited rules and existing test specs, mapped missing tests, implemented domain exceptions, fee calculation, member eligibility, loan lifecycle services with pessimistic row locking against concurrency, and added unit and concurrency tests covering all normal, boundary, and failure cases.
+- **What I did:** Used as-is to implement Milestone 2 domain models, business rules, fee calculation, borrowing eligibility, application services with pessimistic row locking, and 82 automated tests.
+
+<details>
+<summary>Full prompt text (Entry 25)</summary>
+
+Start Milestone 2 (M2 — Business Rules) for the Equipment Rental Desk project.
+
+First inspect the current repository, README.md, PROMPTS.md, SQLAlchemy models, and existing M2 behavioral test specifications. Use the existing M1 implementation as the source of truth.
+
+Before changing code:
+1. Summarize the required business rules and map each rule to its existing tests.
+2. Identify missing tests for reservation expiry, late fees, member eligibility, active-loan limits, payments, suspension, maintenance, invalid transitions, double return, and concurrent checkout.
+3. Propose a small implementation plan for testable Python service/domain logic.
+
+Then implement M2 only:
+- Keep business rules separate from FastAPI endpoints.
+- Use integer paise for all money calculations.
+- Use UTC timestamps and the documented reservation-expiry and late-fee assumptions.
+- Use database transactions and appropriate locking or constraints to prevent concurrent double checkout.
+- Add tests for normal cases, boundary conditions, and failures.
+- Do not implement M3 API endpoints, M4 UI features, or M5 deployment work.
+- Do not commit or push until the implementation and tests have been reviewed.
+
+Append this exact prompt and subsequent project instructions to PROMPTS.md, preserving existing entries. Run the relevant tests and report the files changed, test results, assumptions, and any unresolved issues. Make sure I can understand and explain the implementation in an interview.
+
+</details>
+
+## Entry 26
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-17
+- **Prompt:** Perform a final correctness review of the current M2 changes in the Equipment Rental Desk repository. Do not commit, push, or begin M3. Inspect actual source code and tests across loan_service.py, member_service.py, item_service.py, eligibility.py, fee_calculator.py, clock.py, and test_concurrency.py. Verify 8 specific requirements: overdue eligibility, reservation expiry, transactions/rollback, concurrency across all paths, payments, maintenance/history, clock/timezone, and test execution. Add regression tests for confirmed defects. Update PROMPTS.md. Report findings. Full prompt below.
+- **Answer:** Audited source code against all 8 requirements. Identified edge cases in monotonic event timestamps (preventing checkout/return/cancellation time preceding event origins) and Assumption 14 lingering reservation cleanup in restore_maintenance. Added 4 regression tests and 2 new PostgreSQL concurrency integration tests for concurrent return and concurrent payment. Verified 82/82 passing tests, Ruff linting/formatting clean, frontend build clean, and clean git diff.
+- **What I did:** Used as-is to review M2 implementation, fix edge cases with regression tests, expand concurrency integration coverage, and verify full quality checks.
+
+<details>
+<summary>Full prompt text (Entry 26)</summary>
+
+Perform a final correctness review of the current M2 changes in the Equipment Rental Desk repository. Do not commit, push, or begin M3.
+
+Inspect the actual source code and tests, especially `loan_service.py`, `member_service.py`, `item_service.py`, `eligibility.py`, `fee_calculator.py`, `clock.py`, and `test_concurrency.py`.
+
+Verify these requirements:
+
+1. **Overdue eligibility:** A loan becomes overdue relative to `due_at`. Confirm the borrowing restriction uses the documented strict boundary: exactly 14 days overdue does not trigger the restriction; 14 days plus one second does.
+2. **Reservation expiry:** Expiry is enforced on reads and writes. At 47h59m the reservation is valid; at exactly 48h it expires. Expired reservations must not count toward active-loan limits or appear as valid active reservations. Confirm lazy cancellation updates both loan and item state correctly.
+3. **Transactions and rollback:** Review every mutating service method. Confirm related loan, item, member-balance, and payment changes are atomic, with no partial updates if an operation fails. State clearly whether services own transactions or require callers to manage them.
+4. **Concurrency:** Confirm both concurrency tests use independent PostgreSQL sessions and actual row-level locks. Check concurrent reservation, checkout, return, and payment paths for race conditions. If a path is not tested, report it honestly instead of claiming full concurrency coverage.
+5. **Payments:** Confirm positive payments up to the exact outstanding balance succeed, overpayments are rejected, and concurrent payments cannot reduce the balance below zero.
+6. **Maintenance and history:** A reserved item placed under maintenance must have its reservation cancelled. A checked-out item must remain returnable, and returning it must not accidentally remove its maintenance status.
+7. **Clock and timezone:** Confirm UTC handling is consistent for aware and naive datetimes, and that test clock overrides can be used deterministically in later API integration.
+8. **Tests and documentation:** Identify any mismatch between behavior, tests, README assumptions, and SUBMISSION.md. Verify the M2 test suite is actually running rather than being excluded by pytest configuration.
+
+Run the relevant tests with PostgreSQL configured, then run the full test suite, Ruff checks, formatting check, frontend build, and `git diff --check`.
+
+Fix only confirmed M2 defects and add regression tests for each fix. Do not make unrelated refactors. Update PROMPTS.md with the actual prompt and its final disposition; do not fabricate transcript history.
+
+Return:
+- Any confirmed defects and exact fixes
+- Any remaining risks or untested paths
+- Test commands and actual pass/fail/skip counts
+- Final changed-file list and Git status
+
+Do not stage, commit, or push. We will review the findings before approving the M2 milestone.
+
+</details>
+
+## Entry 27
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-17
+- **Prompt:** Perform one final targeted M2 transaction review. Do not commit, push, or start M3. Investigate expired checkout and transaction rollback in LoanService.checkout(). Determine whether caller-managed transaction rolls back lazy cancellation when ReservationExpiredError escapes. Fix the design with smallest safe change, explain trade-offs, add regression tests with caller-managed transactions and fresh session verification, verify exception rollback and concurrency tests pass, run all test suites, Ruff checks, frontend build, git diff --check, update documentation, and report final Git status. Full prompt below.
+- **Answer:** Audited transaction boundaries and confirmed that escaping ReservationExpiredError causes caller-managed transactions (e.g. `with session.begin():`) to roll back lazy cancellation and item availability restoration. Designed and implemented dual safe fix: (1) `LoanService.settle_expired_reservation()` allowing callers to settle expiry in a dedicated transaction after catching `ReservationExpiredError`, and (2) `LoanService.checkout_with_outcome()` returning a `CheckoutOutcome` dataclass for single-transaction commit without rollback. Refactored `LoanService.checkout()` to delegate to outcome pattern while preserving exception behavior. Added 4 transaction and rollback integration tests in `test_transactions.py` and 2 unit tests in `test_loan_service.py`. Verified all 88 tests pass with PostgreSQL (72 pass, 16 skip without DATABASE_URL), Ruff lint and format clean, frontend build clean, and zero git diff warnings.
+- **What I did:** Used as-is to investigate transaction boundary rollback on expired checkout, implement caller settlement and outcome patterns, add regression tests verifying fresh database sessions, and verify all repository quality gates.
+
+<details>
+<summary>Full prompt text (Entry 27)</summary>
+
+Perform one final targeted M2 transaction review. Do not commit, push, or start M3.
+
+**Primary issue to investigate: expired checkout and transaction rollback.**
+
+In `LoanService.checkout()`, verify the path where the reservation has expired. The reported implementation cancels the reservation, makes the item available, flushes, and then raises `ReservationExpiredError`. Since services do not own transactions, determine whether a caller-managed transaction will roll back those changes when the exception escapes.
+
+If it does, fix the design with the smallest safe change. Preserve all requirements:
+- Expired checkout must be rejected.
+- Expired reservations must not remain as valid reservations.
+- Loan and item state must stay consistent.
+- Related mutations must remain atomic.
+- Do not commit or roll back the caller's entire transaction from inside a service method.
+- Do not catch the exception and accidentally commit unrelated changes.
+
+Consider a clear service outcome that lets the caller persist the expiry cleanup while still returning the correct checkout error, or another transaction-safe design. Explain the trade-offs and test the chosen behavior using the actual transaction boundary.
+
+Add a regression test that:
+1. Creates a reservation that has expired.
+2. Attempts checkout inside the same kind of caller-managed transaction expected in the application.
+3. Handles the expected failure as the application would.
+4. Verifies from a fresh database session that the reservation and item states are correct after the transaction ends.
+
+Also verify that other exceptions still roll back all related mutations, and that concurrent checkout and reservation tests continue to pass.
+
+Finally, rerun and report the actual outputs for:
+- Full pytest suite with PostgreSQL configured.
+- Full pytest suite without `DATABASE_URL`.
+- `ruff check .`
+- `ruff format --check .`
+- `npm run build`
+- `git diff --check`
+
+Inspect README.md, SUBMISSION.md, and PROMPTS.md for consistency. Record the actual prompt and final disposition in PROMPTS.md without fabricating history. Report the final Git status and changed files. Do not stage, commit, push, or begin M3.
+
+</details>
+
+## Entry 28
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-18
+- **Prompt:** Review the final M2 changes before commit. Do not commit, push, stage files, or start M3. Inspect `LoanService.checkout()`, `checkout_with_outcome()`, and `settle_expired_reservation()`. Choose and document one recommended transaction-safe approach for M3 and explain how expired reservations commit as cancelled while the API returns the correct error. Check that escaping exceptions cannot silently undo expiry cleanup and callers cannot omit settlement. Verify `checkout_with_outcome()` preserves all eligibility, locking, timestamp, and transition rules. Verify integration tests use fresh sessions and clean up in finally blocks. Review complete diff for unintended changes, confirm PROMPTS.md integrity, and verify README.md and SUBMISSION.md do not claim M2 complete before approval. Report test results and remaining risks. Full prompt below.
+- **Answer:** Conducted thorough audit of source files, transaction safety, test cleanup, diff scope, and documentation. Recommended `checkout_with_outcome()` for M3 API handlers as the optimal transaction-safe pattern that commits expiry cleanup in a single transaction before returning HTTP error response, preventing accidental omission of settlement or rollback of cleanup. Verified 100% rule parity in `checkout_with_outcome()`. Verified test suite fresh session usage and try/finally cleanup. Verified README.md and SUBMISSION.md accurately reflect M2 as in progress/pending review. All 88 tests pass with PostgreSQL (72 pass, 16 skip without DATABASE_URL), Ruff lint and format clean, frontend build clean, and zero git diff warnings.
+- **What I did:** Used as-is to review final M2 changes, document M3 transaction-safe architecture recommendation, verify test isolation and cleanup, and confirm milestone documentation status without staging, committing, or pushing.
+
+<details>
+<summary>Full prompt text (Entry 28)</summary>
+
+Review the final M2 changes before commit. Do not commit, push, stage files, or start M3.
+
+1. Inspect `LoanService.checkout()`, `checkout_with_outcome()`, and `settle_expired_reservation()` in the actual source.
+2. Choose and document one recommended transaction-safe approach for M3. Explain how the expired reservation is committed as cancelled while the API still returns the correct reservation-expired error.
+3. Check that an exception escaping a caller-managed transaction cannot silently undo expiry cleanup, and that callers cannot accidentally omit the settlement step.
+4. Check that `checkout_with_outcome()` preserves all eligibility checks, item and loan locking, timestamp validation, and state-transition rules from the original checkout implementation.
+5. Verify that the integration tests use a fresh database session to confirm committed state and that test data is cleaned up even if an assertion fails.
+6. Review the complete diff for unintended changes, confirm `PROMPTS.md` contains the actual prompts and accurate dispositions, and verify README.md and SUBMISSION.md do not claim M2 is complete before approval.
+7. Report the final test results and any remaining risks. Do not modify unrelated code.
+
+Do not stage, commit, push, or begin M3.
 
 </details>

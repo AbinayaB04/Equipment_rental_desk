@@ -6,9 +6,9 @@ A tool-library lending system designed to manage equipment reservations, check-o
 
 **Repository:** [Equipment_rental_desk](https://github.com/AbinayaB04/Equipment_rental_desk)
 
-**Current milestone:** M0 — Project scaffold
+**Current milestone:** M2 — Business rules (Implemented, pending review)
 
-> **Implementation status:** M0 provides the initial project structure, FastAPI health endpoint, React frontend scaffold, Docker Compose setup, and development checks. Business rules and API endpoints for later milestones are planned and are not yet implemented. This README will be updated as each milestone is completed.
+> **Implementation status:** M2 implements pure domain rules and application services for equipment reservations, checkouts, returns, late-fee calculations, borrowing eligibility, payments, member suspensions, and maintenance handling with pessimistic concurrency locking. M3 API endpoints, M4 UI, and M5 deployment remain planned.
 
 ---
 
@@ -267,15 +267,15 @@ ruff format --check .
 pytest -q
 ```
 
-The default test run executes **14 passing tests** (3 API health checks, 3 environment configuration checks, and 8 PostgreSQL schema constraint tests verifying check constraints and foreign key rules).
+The test suite executes **88 passing tests** across:
+- **API and Config:** Health endpoint, origin CORS rules, and environment parsing (6 tests).
+- **PostgreSQL Integration:** Schema check constraints and foreign key delete-restrictions (8 tests).
+- **Concurrency Integration:** Thread-safe checkout, reservation, return, and payment operations against double-checkout and race conditions via `with_for_update()` (4 tests).
+- **Transaction & Rollback Integration:** Caller-managed transaction boundaries, rollback safety on domain failures, and 2-phase settlement / outcome patterns for expired checkout (4 tests).
+- **Business Rule Specifications:** 16 behavior-focused specification tests validating Problem 1 rules.
+- **Unit Tests:** Pure late-fee calculator (24h increments, caps), borrowing eligibility (suspension, balance, overdue > 14d, active loans), `LoanService`, `MemberService`, and `ItemService` (50 tests).
 
-To inspect the M2 business-rule behavioral specification contracts:
-
-```powershell
-pytest tests/unit/test_business_rules_spec.py -m m2_spec
-```
-
-*Note on M2 specifications:* These 16 behavioral specification tests define the business rule contracts for Milestone 2. They are expected to fail until M2 implements the service layer, and are excluded from the default M1 test run to prevent breaking test collection.
+When PostgreSQL is unavailable, PostgreSQL-specific integration and concurrency tests skip gracefully (72 passed, 16 skipped).
 
 ### Frontend build
 
