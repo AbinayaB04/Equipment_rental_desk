@@ -1152,3 +1152,1286 @@ Review the final M2 changes before commit. Do not commit, push, stage files, or 
 Do not stage, commit, push, or begin M3.
 
 </details>
+
+## Entry 29
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-18
+- **Prompt:** Initial inspection of backend state for Milestone M3 — API. Audit FastAPI routes, SQLAlchemy models, database/session configs, request/response schemas, domain/service methods, exception classes, logging/clock utilities, backend tests, and compare existing API/services against 6 required operations (Member CRUD/suspension, Item CRUD/maintenance, Loan lifecycle, Payments, Overdue loans, Member statement). Full prompt below.
+- **Answer:** Inspected codebase and reported: (1) only `GET /health` exists; all other API routes missing; (2) models complete, but Pydantic schemas completely missing except `HealthResponse`; (3) loan lifecycle, payments, and overdue loans implemented in services; item/member CRUD only partially implemented (read/maintenance/suspension only); member statement missing from services; (4) domain exceptions exist, but FastAPI exception handlers, structured logging, and test clock controls are missing; (5) test suite has 88 passing tests but zero API tests outside `/health`; (6) identified CORS restrictions in `main.py` and `session_scope` exception rollback risks for M3 API handlers.
+- **What I did:** Used as-is for inspection; no code changes were made from the response.
+
+<details>
+<summary>Full prompt text (Entry 29)</summary>
+
+We are starting Milestone M3 — API for the KJBN Labs Equipment Rental Desk assignment.
+
+M0, M1, and M2 are committed and pushed to GitHub. The latest commit is `dfe8100`. Do not start implementation yet.
+
+Your task is only to inspect the existing backend and report its current state.
+
+1. Read the FastAPI application entry point and inspect the existing API routes.
+2. Inspect the SQLAlchemy models, database/session configuration, and existing request/response schemas, if any.
+3. Inspect all files under `backend/app/domain/` and `backend/app/services/`. Identify the service methods already available and their parameters.
+4. Inspect existing exception classes, error handling, logging, and clock utilities.
+5. Inspect the existing backend tests and `backend/pyproject.toml`.
+6. Compare the existing API against these required operations:
+   - Member CRUD and reversible suspension.
+   - Item CRUD and maintenance transitions.
+   - Reserve, check out, return, and cancel reservation.
+   - Record payment.
+   - List overdue loans.
+   - Retrieve a member statement containing loans, fees, payments, and balance.
+
+For every operation, report whether it is already implemented, partially implemented, or missing. Distinguish API endpoints from service methods; having a service method does not mean its API endpoint exists.
+
+Restrictions:
+- Do not create, edit, delete, or format any files.
+- Do not stage, commit, or push anything.
+- Do not begin M4 or modify the frontend.
+- Do not assume missing functionality without checking the actual code.
+
+Return a concise inspection report with:
+1. Existing routes.
+2. Existing service methods relevant to each required operation.
+3. Missing API components.
+4. Any risks or inconsistencies noticed.
+
+Stop after the report and wait for my next instruction.
+
+</details>
+
+## Entry 30
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-18
+- **Prompt:** Planning-only revision for Milestone M3 — API architecture. Clarify 7 key areas: (1) expired-reservation transaction boundaries avoiding exception rollback, (2) zero-trust production-safe reviewer test clock, (3) integer paise and member statement balance reconciliation, (4) domain exception and database error handling without leaking SQL/internals, (5) verified model fields and service signatures (confirming `get_active_loans` exists and listing missing methods), (6) pagination standards and boundary test coverage, and (7) deployment safety with test-clock disablement tests. Full prompt below.
+- **Answer:** Revised the implementation plan to: (1) define explicit transaction commit and clean JSONResponse on expired checkout without relying on exception rollback, (2) enforce an immutable production guard disabling test clock when `APP_ENV=production` even if `ALLOW_TEST_CLOCK=true` is set, (3) verify integer paise throughout and document balance reconciliation formula ($\sum \text{fees} - \sum \text{payments} = \text{balance}$), (4) map verified domain exceptions and SQLAlchemy `IntegrityError` to safe HTTP envelopes without leaking SQL, (5) verified all model fields and confirmed `MemberService.get_active_loans()` exists, explicitly listing query/CRUD methods to add, (6) defined `PaginatedResponse[T]` standard and extensive boundary/concurrency test plan, and (7) added deployment safety tests.
+- **What I did:** Planning only; no application files were modified, and uncommitted changes were preserved.
+
+<details>
+<summary>Full prompt text (Entry 30)</summary>
+
+We have reviewed your M3 API implementation plan. The overall architecture is approved in principle, but the plan needs clarification before implementation.
+
+This is a planning-only revision. Do not modify any files, including application code and PROMPTS.md. Do not stage, commit, or push anything.
+
+Please revise your plan to address the following:
+
+1. **Expired-reservation transactions**
+   - Inspect the actual database session dependency and `session_scope()` implementation.
+   - Define an explicit transaction boundary for `checkout_with_outcome()`.
+   - Ensure that an expired reservation is committed as CANCELLED and its item released as AVAILABLE before the API returns `RESERVATION_EXPIRED`.
+   - Avoid relying on a raised exception being followed by a commit. Explain precisely how rollback and commit will behave.
+
+2. **Reviewer test clock**
+   - Keep the clock override disabled by default.
+   - Prevent it from being enabled in production, even if an environment variable is accidentally set.
+   - Explain how development/test environments will enable it and how invalid or unauthorized headers will be handled.
+   - Keep all internal timestamps timezone-aware and normalized to UTC.
+
+3. **Money and statement consistency**
+   - Use integer paise throughout the API.
+   - Reuse existing domain fee-calculation logic rather than introducing a second calculation.
+   - Explain how the member statement reconciles total fees, payments, and running balance.
+   - Preserve the existing late-fee rounding assumption and test it at boundaries.
+
+4. **Error handling**
+   - Map known domain errors and known database integrity violations to safe, consistent error responses.
+   - Do not expose SQL, database connection details, stack traces, or internal exception text to clients.
+   - Return a generic internal-server-error response for unexpected failures while logging the details safely.
+   - Verify which exception classes actually exist before defining mappings.
+
+5. **Actual model and service verification**
+   - Verify every proposed Pydantic field against the real SQLAlchemy model and enum definitions.
+   - Confirm every referenced service method and signature exists; clearly identify methods that must be added.
+   - Confirm whether `get_active_loans()` actually exists before planning to use it.
+   - Do not assume the proposed schemas match the database fields.
+
+6. **API consistency and coverage**
+   - Define consistent pagination parameters and collection response formats.
+   - Cover the exact 48-hour reservation expiry boundary and the ₹100 balance boundary.
+   - Include tests for concurrent reservations, double return, overpayment, maintenance transitions, and unexpected database failures.
+   - Distinguish validation failures from domain-rule failures.
+
+7. **Deployment safety**
+   - Ensure the production configuration cannot activate the test clock.
+   - Include tests proving the test clock is ignored or rejected when disabled.
+   - Do not start M4 or modify frontend files.
+
+Return the revised sections and any remaining decisions that require approval. Clearly identify any assumptions you could not verify from the code.
+
+Stop after the revised plan. Do not implement anything.
+
+</details>
+
+## Entry 31
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-18
+- **Prompt:** M3 Step 1 shared API foundation hardening: safely normalize environment variables by stripping whitespace on `APP_ENV` and `ALLOW_TEST_CLOCK`, add an end-to-end test for oversized `X-Request-ID` header replacement, and add focused configuration unit tests for reviewer-clock defaults and the production guard override. Full prompt below.
+- **Answer:** Implemented hardening across three files: updated `backend/app/core/config.py` to strip whitespace on `APP_ENV` and `ALLOW_TEST_CLOCK`; added `test_request_id_replaced_when_oversized_in_request` in `backend/tests/api/test_foundation.py`; extended `test_unset_environment_defaults_to_production` and added production guard whitespace test and non-production enable test in `backend/tests/unit/test_config.py`. Ran verifications: 24/24 focused foundation and config tests passed; full test suite passed with 109/109 on PostgreSQL and 93 passed / 16 skipped without a database URL; Ruff lint, Ruff formatting, and `git diff --check` all passed cleanly.
+- **What I did:** Implemented and verified; no domain rules, database schema, frontend files, or application endpoints were added or changed by this hardening pass.
+
+<details>
+<summary>Full implementation prompt text (Entry 31)</summary>
+
+# M3 Step 1 — Final Hardening Only
+
+The read-only audit passed overall but identified three small improvements. Implement only these changes.
+
+## 1. Normalize environment variables safely
+
+In `backend/app/core/config.py`:
+- Strip leading and trailing whitespace before lowercasing `APP_ENV` and `ALLOW_TEST_CLOCK`.
+- Preserve the existing rule that the reviewer test clock is disabled in production.
+- Add a regression test proving that `APP_ENV=" production "` combined with `ALLOW_TEST_CLOCK="true"` still disables the reviewer clock.
+- Preserve existing defaults and behavior for valid configurations.
+
+## 2. Add an end-to-end invalid request-ID test
+
+In `backend/tests/api/test_foundation.py`:
+- Send a request to `/health` with an oversized `X-Request-ID` header.
+- Verify the response succeeds and returns a replacement request ID.
+- Verify the returned ID matches the permitted format and length, rather than echoing the invalid value.
+- Follow the existing test-client and assertion conventions.
+
+## 3. Add focused configuration tests
+
+In `backend/tests/unit/test_config.py`:
+- Test the default reviewer-clock configuration.
+- Test that the test-clock key is unset by default.
+- Test that the production guard overrides `ALLOW_TEST_CLOCK=true`.
+- Avoid duplicating tests unnecessarily if an existing test already verifies the same behavior; extend the existing test instead.
+
+## Strict boundaries
+
+- Inspect the actual current files before editing.
+- Do not modify `PROMPTS.md` in this step.
+- Do not modify business rules, domain services, database models, migrations, API endpoints, or frontend files.
+- Do not stage, commit, or push anything.
+- Do not make unrelated refactors.
+
+## Verification
+
+Run:
+1. The focused foundation API tests.
+2. The configuration unit tests.
+3. The full test suite with PostgreSQL if available.
+4. Ruff lint and format checks.
+5. `git diff --check`.
+
+Report exact commands and results, files changed, and Git status. If any test fails, investigate and report the actual cause rather than weakening the test. Stop after this hardening pass.
+
+</details>
+
+<details>
+<summary>Full prompt-log update prompt text (Entry 31)</summary>
+
+# Update PROMPTS.md — Record M3 Step 1 Hardening
+
+The M3 Step 1 hardening pass has finished. Update only `PROMPTS.md` to record this work.
+
+1. Inspect the existing `PROMPTS.md` and verify the latest entry number. The previous recorded entry was Entry 30; confirm whether any later entries now exist before choosing the next number.
+2. Preserve every existing entry unchanged.
+3. Append the next entry with:
+   - Tool: Google Antigravity
+   - Date: 2026-10-18
+   - A concise summary of the exact hardening prompt supplied: whitespace normalization for `APP_ENV` and `ALLOW_TEST_CLOCK`, an end-to-end oversized request-ID test, and configuration tests for reviewer-clock defaults and the production guard.
+   - An honest response summary: three files changed (`backend/app/core/config.py`, `backend/tests/api/test_foundation.py`, and `backend/tests/unit/test_config.py`); 24 focused tests passed; 109 full-suite tests passed with PostgreSQL; 93 passed and 16 skipped without a database URL; Ruff lint, formatting, and `git diff --check` passed.
+   - Disposition: implemented and verified; no domain rules, database schema, frontend files, or application endpoints were added or changed by this hardening pass.
+4. Include the exact full hardening prompt supplied by the user-facing assistant, verbatim and in full, inside a `<details>` section. Do not paraphrase or shorten the prompt. Use the conversation's exact prompt text, including all headings, requirements, boundaries, and verification instructions.
+5. Do not claim that the tests were independently run by you beyond the reported command results.
+6. Verify the new entry and show its exact contents.
+7. Run `git diff --check` and `git status`.
+
+Strict boundaries:
+- Modify only `PROMPTS.md`.
+- Do not modify application or test files.
+- Do not stage, commit, or push anything.
+- Preserve all existing uncommitted changes.
+- Stop after verification.
+
+If you cannot recover the exact full prompt from the current conversation, do not invent it or substitute a summary for the verbatim prompt. Report that limitation instead.
+
+</details>
+
+## Entry 32
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-18
+- **Prompt:** Implement M3 Step 2 Member and Item APIs: provide REST endpoints for listing, retrieval by ID, creation, permitted profile/metadata updates, member suspension/reinstatement, and item maintenance transitions. Enforce Pydantic validation, reject server-managed fields and direct item lifecycle assignment, reuse existing domain services and centralized error handling, and add comprehensive API/unit tests. Full prompt below.
+- **Answer:** Implemented Member and Item APIs across the backend architecture:
+  1. `backend/app/services/member_service.py`: Added `list_members()`, `create_member()`, and `update_member()`.
+  2. `backend/app/services/item_service.py`: Added `list_items()`, `create_item()`, and `update_item()`.
+  3. `backend/app/schemas/`: Created `member.py` (`MemberCreate`, `MemberUpdate`, `MemberResponse`), `item.py` (`ItemCreate`, `ItemUpdate`, `ItemResponse`), and updated `common.py` (`PaginatedResponse`) and `__init__.py`.
+  4. `backend/app/api/routers/`: Created `members.py` (`GET /members`, `POST /members`, `GET /members/{id}`, `PATCH /members/{id}`, `POST /members/{id}/suspend`, `POST /members/{id}/reinstate`, `POST /members/{id}/reactivate`) and `items.py` (`GET /items`, `POST /items`, `GET /items/{id}`, `PATCH /items/{id}`, `POST /items/{id}/maintenance`, `POST /items/{id}/restore-maintenance`, `POST /items/{id}/restore`).
+  5. `backend/app/main.py`: Mounted members and items routers with root and `/api/` prefix aliases.
+  6. `backend/tests/`: Added 24 focused API tests in `tests/api/test_members.py` (12 tests) and `tests/api/test_items.py` (12 tests), added 6 service unit tests in `tests/unit/test_member_service.py` and `test_item_service.py`, and updated `tests/conftest.py` with `StaticPool` for thread-safe SQLite API testing.
+  7. Verification: 24/24 focused member & item API tests passed; 21/21 service unit tests passed; full test suite passed with 139/139 on PostgreSQL and 123 passed / 16 skipped without a database URL; Ruff lint, Ruff formatting, and `git diff --check` all passed cleanly.
+- **What I did:** Implemented Member and Item APIs with complete test coverage. Loan lifecycle, payments, statements, and frontend screens were deferred to subsequent M3/M4 milestones per scope boundaries.
+
+<details>
+<summary>Full prompt text (Entry 32)</summary>
+
+# M3 Step 2 — Implement Member and Item APIs
+
+We have completed M1 (database models, migrations, and seed data), M2 (domain business rules and services), and M3 Step 1 (shared API foundation). The read-only review of M3 Step 1 passed.
+
+Now implement **only M3 Step 2: Member and Item APIs** in the existing Equipment Rental Desk repository.
+
+## 1. Inspect before coding
+
+Before editing, inspect the actual current repository, including:
+
+- `backend/app/main.py`
+- `backend/app/api/`
+- `backend/app/schemas/`
+- `backend/app/models/` or wherever the SQLAlchemy models actually live
+- `backend/app/services/`
+- `backend/app/domain/`
+- `backend/app/db/` or wherever the database session is configured
+- Existing Alembic migrations and seed scripts
+- Existing API, integration, unit, and concurrency tests
+- `PROMPTS.md`
+- The current `git status` and uncommitted M3 Step 1 changes
+
+Use the actual file structure; do not assume these paths all exist.
+
+Reuse the existing database session dependency, SQLAlchemy models, domain services, error handlers, request-ID middleware, configuration, and response conventions wherever appropriate.
+
+## 2. Member API
+
+Implement appropriate REST endpoints for reading and managing members, based on the current model and service capabilities.
+
+At minimum, provide:
+- List members.
+- Retrieve a member by ID.
+- Create a member.
+- Update a member's permitted profile fields.
+- Suspend or reactivate a member only if supported by the existing service/domain design.
+
+Requirements:
+- Define request and response schemas using the project's existing Pydantic conventions.
+- Validate input fields and reject invalid data with clear, safe validation errors.
+- Return 404 for a nonexistent member.
+- Do not allow profile updates to bypass domain rules or directly manipulate derived account balances.
+- Do not duplicate eligibility, suspension, balance, or overdue business rules in the API layer.
+- Do not allow clients to set server-managed fields such as IDs, timestamps, or derived balances unless the existing design explicitly requires it.
+- Use the existing domain service for state changes where available. If a necessary operation is not supported, report the gap rather than inventing a conflicting design.
+
+## 3. Item API
+
+Implement appropriate REST endpoints for reading and managing equipment items, based on the current model and service capabilities.
+
+At minimum, provide:
+- List items.
+- Retrieve an item by ID.
+- Create an item.
+- Update permitted item metadata.
+- Support maintenance status changes only through existing domain/service operations where available.
+
+Requirements:
+- Use appropriate Pydantic request and response schemas.
+- Validate required fields, replacement value in integer paise, and permitted item states.
+- Return 404 for nonexistent items.
+- Prevent clients from bypassing item lifecycle rules by directly assigning states such as RESERVED or CHECKED_OUT.
+- Do not overwrite active reservation or checkout state through a generic update endpoint.
+- Reuse existing services and domain rules. If a safe operation does not exist, report the missing capability rather than adding an undocumented shortcut.
+- Do not add database columns or migrations unless the current schema demonstrably lacks a required field. If a migration appears necessary, stop and report why instead of implementing it in this step.
+
+## 4. API design and consistency
+
+- Follow conventional REST naming and HTTP status codes.
+- Use the existing centralized error-response format and request-ID behavior.
+- Ensure response schemas do not expose internal ORM details, credentials, or unintended fields.
+- Use dependency injection for database sessions and services according to the current architecture.
+- Preserve existing `/health` behavior.
+- Keep all domain business logic in the domain/service layer, not the route handlers.
+- Avoid unnecessary dependencies and unrelated refactors.
+- Do not implement loan, reservation, checkout, return, payment, or statement endpoints in this step.
+
+## 5. Tests
+
+Add focused tests for the new member and item endpoints, following the current project test conventions.
+
+Cover at least:
+- Successful list and detail responses.
+- Successful member and item creation.
+- Successful permitted profile/metadata updates.
+- Missing member and item IDs return 404.
+- Invalid request bodies return 422.
+- Server-managed fields cannot be set or overwritten by clients.
+- Item lifecycle states cannot be bypassed through generic create/update requests.
+- Maintenance changes use the proper service operation, if supported.
+- Existing error-response format and `X-Request-ID` behavior are preserved.
+- Existing M1/M2 business-rule and concurrency tests continue to pass.
+
+Use PostgreSQL for tests that depend on database locking, transaction behavior, or PostgreSQL-specific semantics. Do not weaken existing tests or change expected business rules just to make tests pass.
+
+## 6. Documentation and prompt log
+
+Update `PROMPTS.md` with the next entry number after inspecting its actual latest entry.
+
+Record:
+- Tool: Google Antigravity
+- Date: 2026-10-18
+- A concise summary of this complete M3 Step 2 prompt.
+- A truthful summary of implementation results, files changed, and actual test commands/results.
+- What was implemented, what was intentionally deferred, and any unresolved issues.
+- The complete prompt text verbatim inside a clearly labelled `<details>` section.
+
+Preserve every existing prompt-log entry unchanged. Do not claim success for checks that were not run.
+
+## 7. Verification
+
+Run and report the exact commands and results for:
+1. Focused member and item API tests.
+2. The full test suite with local PostgreSQL, if available.
+3. The full suite without `DATABASE_URL`, where applicable.
+4. Ruff lint and formatting checks.
+5. `git diff --check`.
+
+Inspect the final diff and `git status`. List every modified and untracked file.
+
+## Strict boundaries
+
+- Implement only M3 Step 2 member and item APIs, their schemas, and their tests.
+- Preserve all existing M3 Step 1 work.
+- Do not modify database models, migrations, seed data, or frontend files unless you stop and explain why a change is essential.
+- Do not configure or connect to Neon yet.
+- Do not modify deployment configuration or unrelated documentation.
+- Do not stage, commit, or push anything.
+- Do not discard or overwrite existing uncommitted changes.
+- Do not assume an existing service supports an operation without inspecting it.
+- If the current architecture does not safely support a required operation, explain the gap and stop that portion instead of bypassing domain rules.
+
+## Final report
+
+Summarize:
+- Endpoints implemented and their request/response behavior.
+- Files added or modified.
+- Business logic reused from existing services.
+- Tests added and exact results.
+- Any gaps or deferred operations.
+- Git status, confirming nothing was staged, committed, or pushed.
+
+Stop after implementation, verification, and prompt-log update. Do not start M3 Step 3.
+
+</details>
+
+## Entry 33
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-18
+- **Prompt:** M3 Step 2 whitespace-only input validation fix: validate required text fields at the Pydantic schema boundary on Member and Item create/update schemas so whitespace-only values are rejected as HTTP 422 validation errors instead of triggering service-layer `ValueError` (500). Normalize whitespace on text fields and preserve optional field semantics for `condition_note`. Add regression tests and verify full suite across PostgreSQL and SQLite. Full prompt below.
+- **Answer:** Implemented Pydantic `@field_validator` hooks on `MemberCreate`, `MemberUpdate`, `ItemCreate`, and `ItemUpdate`:
+  1. `backend/app/schemas/member.py`: Added field validators on `name` and `phone` ensuring whitespace is trimmed and whitespace-only strings raise `ValueError` (caught by Pydantic as HTTP 422 `VALIDATION_ERROR`).
+  2. `backend/app/schemas/item.py`: Added field validators on `name` and `category` rejecting whitespace-only inputs, and on `condition_note` trimming whitespace while preserving optional field semantics and PATCH clearing.
+  3. `backend/tests/api/test_members.py`: Added 4 regression tests verifying whitespace-only create and update requests return HTTP 422, and leading/trailing whitespace is normalized.
+  4. `backend/tests/api/test_items.py`: Added 4 regression tests verifying whitespace-only create and update requests return HTTP 422, condition notes preserve optional semantics, and leading/trailing whitespace is normalized.
+  5. Verification: 32/32 focused member and item API tests passed; 21/21 service unit tests passed; full test suite passed with 147/147 on local PostgreSQL and 131 passed / 16 skipped without `DATABASE_URL`; Ruff lint, Ruff format, and `git diff --check` all passed cleanly.
+- **What I did:** Implemented and verified schema boundary validation and regression tests. Uncommitted working tree preserved; nothing staged, committed, or pushed.
+
+<details>
+<summary>Full prompt text (Entry 33)</summary>
+
+# M3 Step 2 — Fix Whitespace-Only Input Validation
+
+The read-only review found one issue: Pydantic's `min_length=1` accepts whitespace-only strings such as `"   "`. The service layer then strips the value and raises `ValueError`, which can result in HTTP 500 instead of HTTP 422.
+
+Fix this issue only.
+
+## 1. Inspect before editing
+
+Inspect the current implementations of:
+- `backend/app/schemas/member.py`
+- `backend/app/schemas/item.py`
+- `backend/app/services/member_service.py`
+- `backend/app/services/item_service.py`
+- `backend/app/api/errors.py`
+- `backend/tests/api/test_members.py`
+- `backend/tests/api/test_items.py`
+- `PROMPTS.md`, especially Entry 32
+
+Use the actual current code as the source of truth.
+
+## 2. Required changes
+
+- Validate required text fields at the Pydantic schema boundary so whitespace-only values are rejected as HTTP 422 validation errors.
+- Prefer Pydantic field validators that normalize whitespace and reject empty required strings.
+- Apply the fix consistently to the relevant create and update schemas for members and items.
+- Inspect optional text fields before changing them. Preserve their existing intended semantics; do not turn optional fields into required fields.
+- Do not use a broad global `ValueError` handler as a shortcut. Keep unexpected programming errors distinguishable from invalid client input.
+- Keep the existing structured API error envelope.
+- Add regression tests for whitespace-only values on relevant create and update endpoints. Verify that they return HTTP 422, not HTTP 500.
+- Verify that valid values with leading or trailing whitespace are handled consistently after normalization.
+- Do not weaken or remove existing tests.
+
+## 3. Prompt log
+
+Append a new chronological entry to `PROMPTS.md` (Entry 33, unless the file's current numbering requires otherwise). Record this complete prompt verbatim in a `<details>` block, following the existing convention.
+
+Record the actual tool, date, changes made, tests run, results, and disposition honestly. Do not rewrite or remove earlier entries.
+
+## 4. Verification
+
+Run and report:
+1. Focused member and item API tests.
+2. Relevant member and item service tests.
+3. The full test suite with local PostgreSQL configured.
+4. The full test suite without `DATABASE_URL`.
+5. Ruff lint and format checks.
+6. `git diff --check`.
+
+Do not claim a command passed unless it actually ran. If PostgreSQL is unavailable, report that limitation instead of implying that PostgreSQL tests passed.
+
+## Strict boundaries
+
+- Preserve all existing M3 Step 1 and Step 2 changes.
+- Do not discard, reset, overwrite, or revert existing uncommitted work.
+- Do not stage, commit, or push anything.
+- Do not change models, migrations, business rules, frontend files, or deployment configuration.
+- Do not begin M3 Step 3.
+- Stop after reporting the changes, test results, and Git status.
+
+</details>
+
+## Entry 34
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-18
+- **Prompt:** M3 Step 3 — Implement Loan Lifecycle APIs: Expose `/loans/reserve`, `/loans/{loan_id}/checkout`, `/loans/{loan_id}/return`, `/loans/{loan_id}/cancel`, `/loans/{loan_id}`, and `/loans` (list) with bounded pagination and filtering. Mount `/api/loans` alias paths. Enforce all business rules via existing domain services: member eligibility (suspension, balance <= ₹100, active loan limit of 3, no overdue loan > 14 days), item availability, lazy expiry of stale reservations, 48-hour reservation expiry on checkout committing cancellation and returning 400 RESERVATION_EXPIRED, return late-fee calculation (₹10/day, ₹200 cap, replacement value cap), cancellation restoring item to available, request-ID propagation, transactional integrity, test-clock support, and PostgreSQL concurrency safety. Add comprehensive API tests and verify against both PostgreSQL and SQLite. Full prompt below.
+- **Answer:** Implemented loan lifecycle endpoints, schemas, service helper, and test suite:
+  1. `backend/app/api/errors.py`: Exported `build_error_response` publicly to allow custom error payloads (e.g., for expired reservation checkout outcome).
+  2. `backend/app/services/loan_service.py`: Added `list_loans(session, member_id=None, item_id=None, status=None, limit=100, offset=0)` with filtering and pagination.
+  3. `backend/app/schemas/loan.py`: Created `LoanReserveRequest` (`member_id > 0`, `item_id > 0`, `extra="forbid"`) and `LoanResponse` (matches `Loan` model, integer paise, UTC timestamps).
+  4. `backend/app/schemas/__init__.py`: Exported `LoanReserveRequest` and `LoanResponse`.
+  5. `backend/app/api/routers/loans.py`: Implemented full loan lifecycle endpoints (`POST /reserve` 201 Created, `POST /{id}/checkout` 200 OK with single-transaction commit on expired reservations returning 400 `RESERVATION_EXPIRED`, `POST /{id}/return` 200 OK assessing late fee and member balance, `POST /{id}/cancel` 200 OK, `GET /{id}` 200 OK, and `GET /` 200 OK with `limit` 1..500 and `offset >= 0`).
+  6. `backend/app/api/routers/__init__.py`: Exported `loans` router.
+  7. `backend/app/main.py`: Mounted `loans.router` under `/loans` and `/api/loans` (with `include_in_schema=False`).
+  8. `backend/tests/unit/test_loan_service.py`: Added unit test `test_list_loans_service` for filtering and pagination.
+  9. `backend/tests/api/test_loans.py`: Added 25 comprehensive API test cases covering all lifecycle steps, boundary rules, test clock, transaction rollback, and error codes.
+  10. Verification: 25/25 focused loan API tests passed; 36/36 loan and item service unit tests passed; full test suite passed with 173/173 on local PostgreSQL and 157 passed / 16 skipped without `DATABASE_URL`; Ruff lint check, Ruff format check (54 files), and `git diff --check` all passed cleanly.
+- **What I did:** Implemented loan lifecycle APIs, schemas, routers, unit tests, and integration tests, strictly following existing architecture, conventions, and business rules. Uncommitted working tree preserved; nothing staged, committed, or pushed.
+
+<details>
+<summary>Full prompt text (Entry 34)</summary>
+
+# M3 Step 3 — Implement Loan Lifecycle APIs
+
+Continue working on my existing KJBN Labs Software Engineering Internship Take-Home Assignment, Problem 1: Equipment Rental Desk.
+
+## 1. Context and restrictions
+
+The repository already contains M0, M1, M2, M3 Step 1 (shared API foundation), and M3 Step 2 (member and item APIs).
+
+The current branch is `main`. The M2 commit is the latest committed milestone, and M3 Step 1 and Step 2 changes are currently uncommitted in the working tree.
+
+Before editing anything:
+
+1. Run `git status` and inspect the current implementation.
+2. Read the relevant sections of `PROMPTS.md` to understand the existing prompt-log format.
+3. Inspect the existing loan and item domain services, models, schemas, exception types, API error handlers, request middleware, test-clock dependency, and API tests.
+4. Review the Problem 1 specification and existing tests.
+5. Identify reusable methods and avoid duplicating business logic.
+
+**Do not discard, overwrite, reset, stage, commit, or push existing changes.** Preserve all M3 Step 1 and Step 2 work. Do not create a new project or rewrite existing modules unnecessarily.
+
+Use the existing Python + FastAPI + SQLAlchemy + PostgreSQL architecture and follow the project's current naming, formatting, testing, and error-handling conventions.
+
+Implement only the loan lifecycle API scope described below. Payments, overdue-list endpoints, member statements, and frontend work belong to later steps unless existing dependencies require a minimal supporting change.
+
+## 2. Required endpoints
+
+Expose these endpoints under `/loans` and, if consistent with the existing router setup, under `/api/loans` as well.
+
+### A. Reserve an item
+
+`POST /loans/reserve`
+
+Accept the member ID and item ID in a validated request schema.
+
+Requirements:
+
+- Delegate to the existing loan service.
+- Reject nonexistent members or items with the established not-found error response.
+- Reject suspended members.
+- Reject members with an unpaid fee balance strictly greater than ₹100. A balance of exactly ₹100 must not block borrowing.
+- Reject members with a loan overdue by more than 14 days.
+- Enforce the maximum of three active loans, counting Reserved, Checked Out, and Overdue loans.
+- Reject items that are unavailable or in an invalid state.
+- Expire stale reservations before evaluating item availability and active-loan eligibility.
+- Record the reservation timestamp using the existing UTC-aware application/test clock.
+- Preserve transactional safety and the existing concurrency protections.
+
+### B. Check out an item
+
+`POST /loans/{loan_id}/checkout`
+
+Requirements:
+
+- Allow checkout only for a valid, unexpired reservation.
+- Apply all relevant member eligibility and suspension checks again at checkout time.
+- Enforce the reservation's 48-hour expiry boundary consistently.
+- Set the checkout timestamp and calculate the due date as seven days after checkout.
+- Use UTC-aware timestamps and the existing test-clock mechanism.
+- Reject duplicate checkout attempts and invalid loan states with the project's established domain exceptions and HTTP status mapping.
+- Ensure concurrent checkout attempts cannot successfully check out the same item twice.
+
+### C. Return an item
+
+`POST /loans/{loan_id}/return`
+
+Requirements:
+
+- Only a loan in the valid checked-out/overdue state can be returned.
+- Returning a reservation that has never been checked out must fail.
+- Returning the same loan twice must fail.
+- Use the existing fee calculator and domain service. Do not reimplement fee calculation in the route.
+- Calculate the late fee using the existing rules: ₹10 per calendar day, rounded up, capped at ₹200 per loan and never exceeding the item's replacement value.
+- Record `returned_at` and `fee_charged`, and add the assessed fee to the member's running balance according to the existing domain implementation.
+- Maintain transactional consistency: a failure must not leave only part of the return recorded.
+- Respect the current time override mechanism.
+
+### D. Cancel a reservation
+
+`POST /loans/{loan_id}/cancel`
+
+Requirements:
+
+- Allow cancellation only for an eligible reservation that has not been checked out or already cancelled/expired.
+- Restore the item to Available when appropriate.
+- Record cancellation/transition history if supported by the current model.
+- Reject invalid transitions with a clear domain error.
+- Ensure the operation is safe under concurrent requests.
+
+### E. Loan details and listing
+
+Provide:
+
+- `GET /loans/{loan_id}` — retrieve one loan.
+- `GET /loans` — list loans with bounded pagination and useful optional filters, such as member ID, item ID, and status, if supported by the existing domain model.
+
+Do not invent unsupported database fields. Check the model first and document any derived status behavior.
+
+Use consistent response schemas and predictable HTTP status codes. Return `201 Created` for successful reservation creation and appropriate `200` responses for successful actions.
+
+## 3. Business-rule integrity
+
+The backend must enforce every applicable rule; frontend validation is not a substitute.
+
+Reuse the existing domain service methods and exceptions. Keep route handlers limited to request validation, dependency injection, service calls, and response serialization.
+
+Pay particular attention to:
+
+- Reservation expiry at 47 hours 59 minutes versus 48 hours 1 minute.
+- The exact 48-hour boundary. Inspect the current implementation and existing assumptions before deciding whether expiry occurs at `elapsed >= 48 hours` or another documented boundary.
+- Exactly ₹100 versus ₹100.01 unpaid balance.
+- Three active loans versus four.
+- An overdue loan at exactly 14 days versus more than 14 days.
+- Replacement value lower than the otherwise calculated late fee.
+- Invalid return, cancellation, and checkout transitions.
+- Duplicate and concurrent requests.
+- UTC timestamp handling and the reviewer test clock.
+
+Do not silently change existing business-rule semantics. If the specification leaves a detail ambiguous, preserve an existing documented assumption or add a numbered assumption to the README only if genuinely necessary.
+
+## 4. Error handling and logging
+
+Use the shared error handlers and error envelope implemented in M3 Step 1.
+
+- Validation errors must return HTTP 422.
+- Missing resources must return HTTP 404.
+- Invalid state transitions and domain conflicts must use the existing appropriate 4xx mapping, typically HTTP 409 where applicable.
+- Unexpected errors must not expose stack traces, SQL, driver messages, or internal implementation details.
+- Preserve `X-Request-ID` propagation and structured request logging.
+- Do not introduce duplicate exception handlers or route-specific error formats.
+
+## 5. Schemas and API integration
+
+Create loan request/response schemas only after inspecting the existing models and service return types.
+
+- Reject unexpected request fields where appropriate.
+- Prevent clients from setting server-managed fields such as loan status, checkout timestamps, due dates, return timestamps, or fees.
+- Serialize timestamps consistently with the project's existing UTC conventions.
+- Represent money as integer paise or the existing safe monetary representation. Never introduce binary floating-point calculations for money.
+- Register the router through the existing router structure and preserve existing endpoints and aliases.
+- Ensure the generated OpenAPI schema accurately describes the implemented operations and response types.
+
+## 6. Tests required
+
+Add focused API tests for the new loan endpoints, reusing existing fixtures and helpers.
+
+Cover at least:
+
+1. Successful reservation.
+2. Reservation of an unavailable item.
+3. Reservation by a nonexistent member.
+4. Reservation of a nonexistent item.
+5. Reservation by a suspended member.
+6. Reservation with a fee balance exactly ₹100.
+7. Reservation with a fee balance of ₹100.01.
+8. Reservation when the member already has three active loans.
+9. Reservation when the member has a loan overdue by more than 14 days.
+10. Reservation expiry at the documented 48-hour boundary.
+11. Successful checkout and correct seven-day due date.
+12. Checkout of an expired reservation.
+13. Duplicate checkout.
+14. Successful return with no late fee.
+15. Return with a late fee.
+16. Late-fee cap at ₹200.
+17. Late fee capped by replacement value.
+18. Return of a reserved but never checked-out loan.
+19. Duplicate return.
+20. Successful reservation cancellation.
+21. Cancellation of a checked-out, expired, or already-cancelled reservation.
+22. Invalid loan ID handling.
+23. Test-clock behavior.
+24. Transaction rollback when an operation fails.
+25. Concurrent checkout safety, using the existing PostgreSQL concurrency-test patterns wherever appropriate.
+
+Do not merely assert that a response is not a 500. Verify response codes, error codes, persisted state, timestamps, balances, and relevant item/loan state transitions.
+
+Add unit tests only where the existing domain behavior lacks coverage. Avoid duplicating existing M2 business-rule tests unnecessarily.
+
+If PostgreSQL is unavailable, report which PostgreSQL integration/concurrency tests were skipped. Do not claim concurrency has been verified unless the relevant tests actually ran against PostgreSQL.
+
+## 7. Verification
+
+From the repository root, run the appropriate existing commands, adjusting paths only when needed:
+
+- Focused loan API tests.
+- Existing loan and item service unit tests.
+- Full test suite with local PostgreSQL configured.
+- Full test suite without `DATABASE_URL`.
+- Ruff linting.
+- Ruff formatting check.
+- `git diff --check`.
+
+Report actual output and counts. Do not invent passing results or claim background tests passed without reading their completed output.
+
+Investigate and fix any regressions caused by this step. Do not alter unrelated M3 behavior to make tests pass.
+
+## 8. PROMPTS.md requirement
+
+The KJBN assignment requires every AI prompt to be logged in order, with the tool name and an honest note describing how the response was used.
+
+Append the next sequential entry to the existing root `PROMPTS.md`, following its established format. Record the full verbatim prompt, tool name (`Google Antigravity`), date (`2026-10-18`), files changed, tests actually run, their exact results, and any remaining limitations.
+
+Do not overwrite previous entries or claim tests passed before they finish.
+
+## 9. Final report
+
+When implementation and verification are complete, report:
+
+1. Endpoints implemented.
+2. Files added and modified.
+3. Business rules reused and any newly implemented behavior.
+4. API and unit tests added.
+5. Exact test results for PostgreSQL and non-PostgreSQL runs.
+6. Ruff and diff-check results.
+7. Any skipped tests, assumptions, unresolved issues, or limitations.
+8. The current `git status`, explicitly confirming that nothing was staged, committed, or pushed.
+
+Stop after M3 Step 3. Do not start payment APIs, overdue dashboards, member statements, frontend implementation, deployment, or later milestones.
+
+Prioritize correctness, understandable code, and a complete test suite over speed. I need to understand and defend this implementation during the KJBN engineering review.
+
+</details>
+
+## Entry 35
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-18
+- **Prompt:** M3 Step 4 — Payments API and Member Statement API: Implement `POST /members/{member_id}/payments` and `GET /members/{member_id}/statement` along with `/api` aliases. Enforce integer paise for money, positive amount validation, member row-locking on PostgreSQL for concurrent payments, overpayment rejection via `OverpaymentError` (HTTP 400 OVERPAYMENT, clarified with user to preserve existing M2 domain rules and tests), suspended member payments, deterministic ordering on statements, totals calculation, and test-clock support. Add comprehensive API tests and verify against both PostgreSQL and SQLite. Full prompt below.
+- **Answer:** Implemented Payment and Statement APIs, schemas, service method, and tests:
+  1. `backend/app/schemas/payment.py`: Created `PaymentCreateRequest` (`amount_paise > 0`, trimmed note, `extra="forbid"`) and `PaymentResponse` (`id`, `member_id`, `amount`, `amount_paise`, `paid_at`, `note`).
+  2. `backend/app/schemas/member.py`: Added `MemberStatementResponse` (`member_id`, `member`, `loans`, `payments`, `total_fees_charged`, `total_payments_recorded`, `current_outstanding_balance`).
+  3. `backend/app/schemas/__init__.py`: Re-exported `PaymentCreateRequest`, `PaymentResponse`, and `MemberStatementResponse`.
+  4. `backend/app/services/member_service.py`: Added `MemberService.get_statement(session, member_id)` aggregating loans, payments, and fees with zero mutations and efficient querying.
+  5. `backend/app/api/routers/members.py`: Implemented `POST /{member_id}/payments` (201 Created) and `GET /{member_id}/statement` (200 OK) with automatic `/api` alias support.
+  6. `backend/tests/unit/test_member_service.py`: Added `test_get_statement_service` verifying aggregation, deterministic ordering, and nonexistent member error.
+  7. `backend/tests/api/test_payments.py`: Added 16 focused API tests covering payments, clock injection, overpayment rejection, suspended member payments, empty/non-empty statements, read-only behavior, and alias parity.
+  8. Verification: 16/16 focused payment/statement API tests passed; 11/11 member service unit tests passed; full test suite passed with 190/190 on local PostgreSQL and 174 passed / 16 skipped without `DATABASE_URL`; Ruff lint check, Ruff format check (56 files), and `git diff --check` all passed cleanly.
+- **What I did:** Implemented Payment and Member Statement APIs, schemas, service logic, and comprehensive API tests, preserving all existing M3 changes and keeping the working tree uncommitted.
+
+<details>
+<summary>Full prompt text (Entry 35)</summary>
+
+# M3 Step 4 — Payments API and Member Statement API
+
+Continue working on my existing KJBN Labs Software Engineering Internship Take-Home Assignment, Problem 1: Equipment Rental Desk.
+
+## 1. Context and Current State
+
+The repository is:
+
+`D:\files\KJBN\Equipment_rental_desk`
+
+Stack:
+- Backend: Python, FastAPI, SQLAlchemy
+- Database: PostgreSQL, with SQLite used for unit/API tests where appropriate
+- Testing: pytest, pytest-cov, Ruff
+- Existing business rules and persistence: already implemented in M1 and M2
+- M3 Steps 1–3: shared API foundation, member/item APIs, and loan lifecycle APIs have been implemented and tested.
+
+Existing loan endpoints include:
+- `POST /loans/reserve`
+- `POST /loans/{loan_id}/checkout`
+- `POST /loans/{loan_id}/return`
+- `POST /loans/{loan_id}/cancel`
+- `GET /loans/{loan_id}`
+- `GET /loans`
+
+The existing application uses centralized error handling, structured request logging, environment-based configuration, and the `X-Test-Clock` reviewer clock mechanism.
+
+The most recent reported test results were:
+- Full suite with local PostgreSQL: 173 passed, 1 warning.
+- Full suite without `DATABASE_URL`: 157 passed, 16 skipped, 1 warning.
+- Ruff lint and format checks passed.
+
+These are previous results, not assumed results for your current changes. Rerun the relevant tests and report the actual outputs.
+
+The working tree contains uncommitted M3 changes. Preserve all existing changes. Do not reset, discard, stage, commit, or push anything.
+
+## 2. Mandatory First Step: Inspect Before Editing
+
+Before making any changes:
+
+1. Run `git status` and inspect the current diff.
+2. Read the existing payment model, member model, loan model, database configuration, domain exceptions, error handlers, schemas, services, routers, and tests.
+3. Inspect `PROMPTS.md` to identify the latest entry number and follow its existing format.
+4. Check whether payment or statement services, endpoints, or schemas already exist. Reuse existing implementations where appropriate instead of duplicating them.
+5. Trace how `Member.running_fee_balance` is updated when a loan is returned and how payment transactions should affect it.
+6. Inspect the current transaction management and test-clock conventions.
+
+Do not assume file paths, field names, exception names, or model relationships. Use the repository's actual implementation.
+
+If any existing implementation conflicts with this prompt or the assignment, explain the conflict before making a potentially destructive change.
+
+## 3. Scope
+
+Implement only the following API functionality:
+
+A. Record a payment against a member's outstanding fee balance.
+
+B. Retrieve a member statement containing that member's loans, fees, payments, and current balance.
+
+Do not implement the frontend, deployment, waitlists, notifications, PDF export, or unrelated refactoring in this step.
+
+Do not change the existing loan lifecycle behavior unless a directly related defect must be fixed. If such a defect is found, explain it and keep the fix minimal.
+
+## 4. Payment API
+
+Implement a resource-oriented endpoint consistent with the existing API conventions. Prefer:
+
+`POST /members/{member_id}/payments`
+
+Also support the existing `/api` alias convention if appropriate.
+
+The request should accept:
+- `amount_paise`: a positive integer amount in paise.
+- `note`: an optional text note, subject to reasonable length validation.
+
+Use the actual existing project naming conventions if they differ, and document any deviation.
+
+Requirements:
+
+1. Verify that the member exists.
+2. Reject non-positive payment amounts with HTTP 422 and the standard validation error envelope.
+3. Reject malformed input and unknown fields consistently with existing schemas.
+4. Reject suspended members if the existing business rules interpret suspended members as unable to transact. Inspect the domain behavior first and maintain consistency.
+5. Record the payment with its member, amount in paise, paid timestamp, and optional note.
+6. Obtain the payment timestamp from the existing injected UTC clock, including the `X-Test-Clock` mechanism.
+7. Update the member's running fee balance according to the established payment and balance model.
+8. Do not allow overpayment to produce a negative outstanding balance. If the amount exceeds the current balance, record the actual payment amount as required by the assignment, but ensure the outstanding balance never becomes negative. Document how the excess is represented or handled, consistent with the current data model.
+9. Make payment recording and balance updates atomic. If any operation fails, roll back the entire transaction.
+10. Prevent concurrent payments from producing an incorrect balance. Inspect the current PostgreSQL locking strategy and use an appropriate row-locking or transactional approach.
+11. Return the created payment using a consistent response schema and appropriate HTTP status code.
+12. Use existing domain exceptions and centralized error handling where possible. Do not add business rules to the router.
+
+Do not use floating-point numbers for money.
+
+## 5. Member Statement API
+
+Implement:
+
+`GET /members/{member_id}/statement`
+
+Also support the `/api` alias convention if appropriate.
+
+The statement must contain:
+
+- Member identification and relevant member details.
+- The member's loans, including relevant timestamps, statuses, due dates, return dates, and recorded fees.
+- Payments recorded for that member.
+- Total fees charged.
+- Total payments recorded.
+- Current outstanding fee balance.
+
+Use integer paise for all money values.
+
+Requirements:
+
+1. Return HTTP 404 using the standard error envelope if the member does not exist.
+2. Include historical as well as active and overdue loans.
+3. Include all recorded payments, ordered deterministically, preferably newest first.
+4. Order loans deterministically, preferably newest first.
+5. Define totals clearly and calculate them without floating-point arithmetic.
+6. Ensure the displayed current balance agrees with the existing member balance and payment/return rules.
+7. Do not accidentally double-count returned-loan fees or payments.
+8. Use efficient database queries and avoid unnecessary N+1 query patterns.
+9. Do not add pagination unless the existing conventions or expected dataset make it necessary. If you add it, document the response contract.
+10. Keep the endpoint read-only. It must not modify balances, expire reservations, or otherwise mutate state just because a statement is retrieved.
+
+If the project stores balances rather than deriving them, inspect how historical fees and payments are represented before deciding how totals should be calculated. Explain the distinction between total fees charged, total payments made, and outstanding balance.
+
+## 6. API Design and Error Handling
+
+Follow the existing API architecture:
+
+- Routers perform request/response handling and delegate business operations to services.
+- Business rules stay in the domain or service layer.
+- Persistence uses the existing SQLAlchemy models and transaction conventions.
+- Schemas reject unknown fields where the project already uses `extra="forbid"`.
+- Errors use the project's existing standardized envelope.
+- Do not expose SQL statements, database driver errors, stack traces, or internal exception messages to clients.
+- Keep the `/api` alias behavior consistent with existing routes and OpenAPI documentation.
+
+Avoid adding duplicate exception types or unnecessary abstractions.
+
+## 7. Tests Required
+
+Add focused API tests and service/unit tests following the existing test structure.
+
+Payment tests must cover:
+
+1. Successful payment recording.
+2. Payment timestamp follows the injected test clock.
+3. Zero payment rejected.
+4. Negative payment rejected.
+5. Missing member returns 404.
+6. Unknown request fields are rejected.
+7. Optional notes are handled correctly.
+8. Overpayment records the payment but never makes the outstanding balance negative.
+9. Payment balance updates are persisted correctly.
+10. Suspended-member behavior matches the established domain rules.
+11. A failed transaction does not leave a payment record or partial balance update.
+12. Concurrent payment behavior is safe where the existing PostgreSQL test infrastructure permits meaningful verification.
+
+Statement tests must cover:
+
+1. Successful statement retrieval.
+2. Missing member returns 404.
+3. Includes active, overdue, cancelled, and returned loans where those states are represented in the current model.
+4. Includes payment history.
+5. Correct total fees, total payments, and outstanding balance.
+6. A statement read does not change balances or mutate loan/item state.
+7. Deterministic ordering.
+8. Empty statement for a member with no loans or payments.
+9. Correct integer-paise amounts.
+10. Appropriate error handling and `/api` alias parity.
+
+Adapt individual test cases to the actual schema and model semantics. Do not fabricate unsupported states or add redundant tests solely to meet a count.
+
+Use isolated fixtures and transactions. PostgreSQL-specific locking tests must use the real PostgreSQL test infrastructure, not SQLite as a substitute for PostgreSQL row-lock semantics.
+
+## 8. Regression and Quality Checks
+
+After implementation, run the focused payment and statement tests, related existing member and loan service/API tests, and then the complete test suite.
+
+Where local PostgreSQL is available, run the full suite with it configured. Also run the suite without `DATABASE_URL` to confirm database-dependent tests skip cleanly.
+
+Run:
+
+- `backend\.venv\Scripts\ruff.exe check .`
+- `backend\.venv\Scripts\ruff.exe format --check .`
+- `git diff --check`
+
+Use the correct working directory and virtual environment for every command.
+
+Investigate failures rather than weakening assertions, skipping relevant tests, or changing unrelated behavior to make the suite pass.
+
+Do not claim tests passed unless you observed their actual output.
+
+## 9. Prompt Log
+
+Append a new entry to `PROMPTS.md` using the next available entry number.
+
+Include:
+- Date: 2026-10-18.
+- Tool: Google Antigravity.
+- The complete prompt verbatim, inside the same `<details>` format used by existing entries if that is the repository convention.
+- A concise summary of the implementation.
+- Exact test and lint results.
+- Honest disposition of the generated suggestions: used, edited, or rejected.
+
+Do not overwrite, reorder, or silently modify earlier prompt entries.
+
+## 10. Git and Scope Protection
+
+This is a working-tree implementation step, not a commit step.
+
+- Do not run `git add`.
+- Do not create a commit.
+- Do not push.
+- Do not discard existing changes.
+- Do not modify `.env` or expose its contents.
+- Do not include credentials in the prompt log.
+- Do not edit unrelated README or SUBMISSION sections.
+
+At the end, run `git status` and report all modified and untracked files, making clear that no changes were staged, committed, or pushed.
+
+## 11. Final Report
+
+Provide a factual report containing:
+
+1. Endpoints added or updated.
+2. Files created and modified.
+3. Payment transaction and overpayment behavior.
+4. Statement calculation semantics.
+5. Tests added and actual results.
+6. PostgreSQL versus SQLite verification results.
+7. Ruff and diff-check results.
+8. Any remaining concerns, assumptions, or limitations.
+9. Current Git status and confirmation that no commit or push occurred.
+
+Stop after this step. Do not begin frontend implementation or the next milestone automatically.
+
+Remember: inspect the real repository before editing, preserve the existing working tree, and prioritize correctness, understandable code, and the assignment's Core requirements.
+
+</details>
+
+## Entry 36
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-18
+- **Prompt:** M3 Step 5 — Overdue Loans API: Implement `GET /loans/overdue` and `/api/loans/overdue` alias. Return checked-out loans that are overdue based on the injected test clock (`now`). Treat overdue status dynamically without database mutations or cron jobs. Exclude returned, cancelled, reserved-but-not-checked-out, and not-yet-due loans. Support bounded pagination (`limit`, `offset`) and optional filtering (`member_id`, `item_id`). Add focused API tests, verify PostgreSQL and SQLite test suites, and run Ruff lint/format checks. Full prompt below.
+- **Answer:** Implemented Overdue Loans API, service method enhancements, router endpoints, and comprehensive tests:
+  1. `backend/app/services/loan_service.py`: Updated `LoanService.get_overdue_loans(session, now=None, member_id=None, item_id=None, limit=100, offset=0)` to dynamically filter `Loan.status == LoanStatus.CHECKED_OUT`, `Loan.due_at.is_not(None)`, and `Loan.due_at < current_time`, with optional `member_id` and `item_id` filters, bounded pagination, and deterministic `order_by(Loan.due_at.asc(), Loan.id.asc())`.
+  2. `backend/app/api/routers/loans.py`: Added `GET /overdue` route before `GET /{loan_id}` to prevent path parameter collision, injecting `get_request_clock` and forwarding pagination/filters. Automatic alias `/api/loans/overdue` enabled via existing router prefix mounting.
+  3. `backend/tests/api/test_overdue_loans.py`: Created 11 focused API tests covering: overdue checked-out loan inclusion, exact boundary convention (Assumption 17: at exact `due_at` not overdue; strictly after is overdue), not-yet-due exclusion, returned loan exclusion, un-checked-out reservation exclusion, cancelled reservation exclusion, multiple overdue loans ordered oldest first, test clock injection via `X-Test-Clock`, pagination (`limit`, `offset`), query filtering by `member_id` and `item_id`, and `/api` alias parity.
+  4. Verification: 11/11 focused overdue loans API tests passed; full test suite passed with 201/201 on local PostgreSQL and 185 passed / 16 skipped without `DATABASE_URL`; Ruff lint check (`All checks passed!`), Ruff format check (57 files formatted), and `git diff --check` all passed cleanly.
+- **What I did:** Implemented the Overdue Loans API and comprehensive tests, verifying time-derived dynamic query semantics and boundary conventions without altering existing milestones or uncommitted working tree state.
+
+<details>
+<summary>Full prompt text (Entry 36)</summary>
+
+Continue the KJBN Labs Software Engineering Internship take-home assignment, Problem 1: Equipment Rental Desk.
+
+Implement **M3 Step 5: Overdue Loans API** only. Do not start frontend development or commit/push anything.
+
+### 1. Inspect before editing
+- Read the Problem 1 requirements, relevant numbered assumptions in `README.md`, and current `PROMPTS.md` entries.
+- Inspect the existing loan/item models, `LoanService`, loan schemas and routers, clock implementation, error handling, and API tests.
+- Reuse existing architecture and conventions. Do not duplicate business rules in the router or introduce unnecessary abstractions.
+- Confirm how loan status and `due_at` are represented before implementing the endpoint.
+
+### 2. Implement the overdue loans endpoint
+Add an endpoint consistent with the existing API conventions:
+
+`GET /loans/overdue`
+
+Also support `/api/loans/overdue` if that matches the existing alias convention.
+
+Requirements:
+- Return loans that have been checked out, have not been returned, and are overdue according to the application's injected current time.
+- Use the existing clock abstraction so tests can control time with the established test-clock mechanism.
+- Treat overdue status as time-derived if that is how the existing domain model works. Do not introduce a cron job or require a database status update just because a due date has passed.
+- Exclude returned, cancelled, reserved-but-not-checked-out, and not-yet-due loans.
+- Reuse existing response schemas where possible.
+- If pagination is supported by the existing loan-list endpoint, use the same bounded pagination conventions here.
+- Preserve consistent error responses and API naming.
+- Keep database access efficient and use the existing service/repository patterns.
+
+### 3. Add tests
+Add focused API tests for:
+1. An overdue checked-out loan is included.
+2. A loan due exactly at the current time follows the documented boundary convention.
+3. A loan not yet due is excluded.
+4. A returned loan is excluded.
+5. A reservation that has not been checked out is excluded.
+6. Multiple overdue loans are returned correctly.
+7. The endpoint respects the injected test clock.
+8. Pagination and filters work if provided.
+9. The `/api` alias behaves consistently, if implemented.
+
+Use existing fixtures and naming conventions. Avoid tests that merely duplicate existing tests without adding coverage.
+
+### 4. Verify
+Run:
+- Focused overdue API tests.
+- The full test suite with local PostgreSQL configured.
+- The full test suite without `DATABASE_URL`.
+- `backend\\.venv\\Scripts\\ruff.exe check .`
+- `backend\\.venv\\Scripts\\ruff.exe format --check .`
+- `git diff --check`
+
+Report actual command outputs and test counts. Do not claim a test passed unless it was run successfully.
+
+### 5. Update the prompt log
+Append the complete prompt and a concise implementation/test summary to `PROMPTS.md`, following its existing entry format. Keep the tool and disposition fields consistent with earlier entries.
+
+### Constraints
+- Do not modify unrelated behavior.
+- Do not change the established overpayment assumption.
+- Do not weaken existing tests or remove meaningful assertions.
+- Do not stage, commit, push, or tag.
+- At the end, show the changed and untracked files, test results, and remaining M3 work.
+
+</details>
+
+## Entry 37
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-18
+- **Prompt:** M3 Final Review — Equipment Rental Desk (Problem 1): Conduct a comprehensive read-only-first review of the complete M3 implementation before the milestone commit. Inspect repository status and diffs, verify all Problem 1 business rules, review API correctness and route precedence, verify concurrency and transaction protections on PostgreSQL, execute all quality checks and test suites (with and without DATABASE_URL), review documentation compliance, identify limitations, and deliver an engineering assessment. Full prompt below.
+- **Answer:** Conducted the full senior engineering review across the entire M3 implementation:
+  1. Repository inspection: Identified 13 modified tracked files and 12 untracked files. Diffs were verified to contain solely intended M3 API foundation, routers, schemas, services, and tests without unrelated changes.
+  2. Business rule verification: Confirmed item lifecycle transitions, 48-hour lazy reservation expiry on read/write, 7-day loan duration, ₹10/day late fee capped at ₹200 and replacement value, 3 active loan limit, borrowing blocks (> ₹100 balance or > 14 days overdue), atomic return and fee assessment with duplicate prevention, reversible member suspensions, integer-paise overpayment rejection, statement aggregation, and dynamic time-derived overdue filtering (strictly `current_time > due_at` per Assumption 17).
+  3. API & route correctness: Verified member, item, and loan routes. Confirmed static route `/loans/overdue` is registered before parameterized route `/loans/{loan_id}`. Confirmed `extra="forbid"` on schemas, non-empty whitespace validators, and strict redaction of internal SQL/exceptions via standardized error envelopes.
+  4. Concurrency & transactions: Confirmed PostgreSQL row-level pessimistic locking (`with_for_update()`) prevents duplicate checkouts, double reservations, duplicate returns/fees, and competing overpayments.
+  5. Test suite verification: Observed and reported actual test execution results:
+     - Full suite with PostgreSQL: 201 passed, 1 warning (exit code 0 in 20.39s).
+     - Full suite without DATABASE_URL: 185 passed, 16 skipped, 1 warning (exit code 0 in 17.74s).
+     - Code quality checks: `ruff check .` passed (`All checks passed!`), `ruff format --check .` passed (57 files formatted), `git diff --check` clean.
+  6. Documentation & limitations: Noted that common assignment PDF is absent from the repository; recorded this as an explicit limitation.
+- **What I did:** Completed the comprehensive M3 final code, architecture, concurrency, and documentation review. Confirmed overall PASS verdict and confirmed M3 is ready for the milestone commit.
+
+<details>
+<summary>Full prompt text (Entry 37)</summary>
+
+# M3 Final Review — Equipment Rental Desk (Problem 1)
+
+You are acting as a senior software engineer reviewing my KJBN Labs Software Engineering Internship take-home assignment.
+
+**Project:** Equipment Rental Desk
+**Repository:** `D:\files\KJBN\Equipment_rental_desk`
+**Current branch:** `main`
+**Completed work:** M0 scaffold, M1 models/schema/migrations/seed data, M2 domain rules and services, M3 Steps 1–5 API implementation.
+
+## Your objective
+
+Perform a comprehensive, read-only-first review of the entire M3 implementation before I create the M3 milestone commit.
+
+Do not assume that earlier implementation reports are correct. Verify the actual repository and execute the checks yourself.
+
+### Rules you must follow
+
+1. Inspect the current Git status and diff before making changes.
+2. Do not stage, commit, push, reset, or discard files.
+3. Do not overwrite working changes without inspecting them.
+4. Follow the existing architecture and naming conventions.
+5. The backend must enforce every business rule; frontend validation alone is insufficient.
+6. Do not add stretch features or begin frontend implementation during this milestone.
+7. Use integer paise for money. Never use floating-point arithmetic for monetary calculations.
+8. Preserve the existing PostgreSQL concurrency protections and transaction boundaries.
+9. Record every AI prompt in `PROMPTS.md` verbatim, including the tool, date, outcome, and accurate disposition, following the existing format.
+10. Never claim a test passed unless you actually executed it and observed its result.
+11. If a critical ambiguity or requirement conflict exists, document it and ask me before making a consequential design decision.
+12. Keep the implementation understandable enough for me to explain during an internship interview.
+
+## Step 1 — Inspect the repository
+
+Run and inspect:
+
+```powershell
+git status
+git diff --check
+git diff --stat
+git log -5 --oneline
+```
+
+Review the relevant files, including:
+
+- `README.md`
+- `SUBMISSION.md`
+- `PROMPTS.md`
+- `backend/app/main.py`
+- `backend/app/api/`
+- `backend/app/core/`
+- `backend/app/domain/`
+- `backend/app/models/`
+- `backend/app/schemas/`
+- `backend/app/services/`
+- `backend/tests/`
+- Database migrations and seed data
+- `backend/pyproject.toml`
+- `.env.example` and other configuration files
+
+Inspect untracked files separately because ordinary `git diff` does not show their contents.
+
+Do not assume the working tree contains only M3 files. Identify any unrelated or unexpected changes.
+
+## Step 2 — Verify all Problem 1 core business rules
+
+Check each rule against the assignment and the actual implementation.
+
+1. Item transitions: Available → Reserved → Checked Out → Available. Overdue is derived from time. Staff can move items into and out of Under Maintenance according to documented transition rules.
+2. Reservations expire after 48 hours. Expiry is enforced on reads and writes where relevant, not just through background jobs.
+3. Loan period is seven days from checkout.
+4. Late fee is ₹10 per calendar day, rounded up, capped at ₹200 per loan and the item's replacement value.
+5. Members may have at most three active loans; Reserved, Checked Out, and Overdue count as active.
+6. Members with an unpaid balance strictly greater than ₹100 or a loan overdue by more than 14 days cannot reserve or check out.
+7. Returning an item computes the fee, records the return, updates the member balance, and releases the item atomically. Duplicate returns must fail.
+8. Suspended members cannot transact; suspension must be reversible and preserve history.
+9. Payment recording updates balances atomically and follows the explicitly documented overpayment policy.
+10. Member statements include loan history, fees, payments, and current outstanding balance.
+11. The overdue endpoint uses the injected clock and excludes loans that are not yet overdue.
+12. Test-clock overrides must not be enabled in production.
+
+Pay special attention to the documented assumption that a loan is overdue only when `current_time > due_at`, if that remains the chosen interpretation.
+
+## Step 3 — Review API correctness
+
+Verify all implemented endpoints, including:
+
+- Member CRUD
+- Item CRUD
+- Reservation, checkout, return, and cancellation
+- Loan listing and loan details
+- Payment recording
+- Member statement
+- Overdue loan listing
+- `/api` aliases, if supported by the existing design
+
+Check request validation, response schemas, HTTP status codes, consistent error envelopes, missing-resource behavior, invalid transitions, pagination limits, filtering, and rejection of client-supplied server-managed fields.
+
+Check that static routes such as `/loans/overdue` are registered before parameterized routes such as `/loans/{loan_id}`.
+
+Check that unexpected exceptions do not leak stack traces, SQL, credentials, or internal database details to clients. Confirm that request IDs and useful structured server-side logs are retained.
+
+## Step 4 — Review concurrency and transactions
+
+Inspect PostgreSQL-specific locking and transaction behavior.
+
+Verify that concurrent operations cannot:
+
+- Reserve the same item twice.
+- Check out the same reservation twice.
+- Return the same loan twice and assess fees twice.
+- Record competing payments that create an invalid balance.
+- Exceed the active-loan limit through concurrent reservations.
+
+Inspect transaction rollback behavior on failure and ensure intentional state changes, including lazy reservation expiry, are committed correctly.
+
+Do not claim SQLite tests establish PostgreSQL concurrency correctness. Execute PostgreSQL-specific tests against the local PostgreSQL instance if available.
+
+## Step 5 — Run verification
+
+Use the project's virtual environment and run:
+
+```powershell
+backend\.venv\Scripts\ruff.exe check .
+backend\.venv\Scripts\ruff.exe format --check .
+git diff --check
+```
+
+Run the complete test suite without `DATABASE_URL` to verify graceful skipping of PostgreSQL-only tests:
+
+```powershell
+Remove-Item Env:\DATABASE_URL -ErrorAction SilentlyContinue
+backend\.venv\Scripts\pytest.exe backend/tests
+```
+
+If the local PostgreSQL container is available, also run:
+
+```powershell
+$env:DATABASE_URL = 'postgresql+psycopg://rental:rental_dev_password@localhost:5434/rental'
+backend\.venv\Scripts\pytest.exe backend/tests
+```
+
+Only use the supplied local development connection if it matches the actual local environment. Do not expose secrets in logs or commit them. Report the exact results, including passed, failed, skipped, warnings, and exit codes.
+
+If any test fails, investigate the cause before modifying code. Add regression tests for verified defects and rerun the relevant checks.
+
+## Step 6 — Review documentation and assignment compliance
+
+Compare the current README, SUBMISSION.md, and PROMPTS.md against the common assignment instructions and Problem 1 requirements.
+
+Check that:
+
+- All resolved ambiguities are recorded as numbered assumptions.
+- The overpayment policy is consistent across the domain, API, tests, and documentation.
+- UTC storage and IST display requirements are addressed.
+- Money representation is consistently documented.
+- The test-clock behavior and production restrictions are documented.
+- Commands and test counts are accurate.
+- `PROMPTS.md` contains the actual prompts used, not reconstructed or invented prompts.
+- No credentials, local-only paths, or misleading deployment claims are included.
+- No requirement is described as complete unless it has been implemented and verified.
+
+If the common assignment PDF is not present, identify the missing document as a limitation rather than guessing its contents.
+
+## Step 7 — Fix only verified M3 defects
+
+If defects are found, explain each defect, its impact, the minimal fix, and the regression test before or while implementing it.
+
+Preserve existing behavior unless a correction is required by the assignment or a documented assumption.
+
+After fixes, rerun the relevant tests and all final quality checks.
+
+Append the next correctly numbered entry to `PROMPTS.md` with the exact review prompt, tools used, actual outcomes, and disposition. Do not alter previous prompt entries unnecessarily.
+
+## Step 8 — Final report and stop
+
+Produce a concise report containing:
+
+1. Overall verdict: PASS, PASS WITH LIMITATIONS, or FAIL.
+2. Business rules and endpoints verified.
+3. Defects found and fixes made, if any.
+4. Exact test and quality-check results.
+5. Remaining risks, missing documents, and unverified requirements.
+6. Files modified and untracked files.
+7. Current Git status and latest commit.
+8. Whether M3 is ready for a milestone commit.
+
+**Stop before `git add`, `git commit`, and `git push`. Do not start M4 or build frontend files. Wait for my explicit approval before creating the milestone commit.**
+
+</details>
+
+## Entry 38
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-18
+- **Prompt:** M3 Commit Preparation — Documentation and Final Verification: Update milestone-progress documentation in `README.md` and `SUBMISSION.md` to reflect actual repository state (M0, M1, and M2 marked complete with commit hashes `2f56c06`, `e039207`, and `dfe8100`; M3 marked complete and ready for milestone commit; M4–M6 remaining planned / not completed). Run code quality and full test suites with and without `DATABASE_URL`. Do not stage, commit, or push. Full prompt below.
+- **Answer:** Updated milestone-progress documentation and executed full verification:
+  1. `README.md`: Updated header status to M3 (Completed, ready for milestone commit) and updated Section 15 milestone table marking M0 (`2f56c06`), M1 (`e039207`), and M2 (`dfe8100`) complete, and M3 complete (ready for milestone commit).
+  2. `SUBMISSION.md`: Updated Section E milestone log with completed dates and hashes for M0, M1, and M2, marking M3 as ready for commit.
+  3. Quality checks: `git diff --check`, `ruff check .`, and `ruff format --check .` all passed cleanly.
+  4. Test verification: Executed test suites without `DATABASE_URL` (185 passed, 16 skipped) and with local PostgreSQL (201 passed).
+- **What I did:** Synchronized milestone documentation with the actual repository state and verified that all tests and lint checks pass cleanly, leaving changes unstaged.
+
+<details>
+<summary>Full prompt text (Entry 38)</summary>
+
+## M3 Commit Preparation — Documentation and Final Verification
+
+The M3 final review reports that all backend API tests pass, but the milestone status in `README.md` and `SUBMISSION.md` is outdated.
+
+Please do the following:
+
+1. Inspect the current `README.md`, `SUBMISSION.md`, `PROMPTS.md`, and `git status`.
+2. Update only the milestone-progress documentation necessary to reflect the actual repository state:
+   - M0, M1, and M2 should be marked complete if the existing commits and implementation support that status.
+   - M3 should be marked complete or ready for its milestone commit, using wording consistent with the project’s documentation.
+   - Do not claim that the entire assignment is complete. The frontend, deployment, and later milestones must retain their accurate status.
+3. Do not change business logic or unrelated documentation.
+4. If you use an AI prompt to make these edits, append the exact prompt to `PROMPTS.md` as the next numbered entry, including tool, date, and disposition. Do not invent a prompt history or overwrite earlier entries.
+5. Run:
+   ```powershell
+   git diff --check
+   backend\.venv\Scripts\ruff.exe check .
+   backend\.venv\Scripts\ruff.exe format --check .
+   Remove-Item Env:\DATABASE_URL -ErrorAction SilentlyContinue
+   backend\.venv\Scripts\pytest.exe backend/tests
+   $env:DATABASE_URL = 'postgresql+psycopg://rental:rental_dev_password@localhost:5434/rental'
+   backend\.venv\Scripts\pytest.exe backend/tests
+   ```
+   Report the actual outputs and exit codes. If no relevant code changed, explain whether rerunning the full suite was necessary; do not claim a test passed unless it actually ran.
+6. Show the final `git status`, `git diff --stat`, and a concise summary of the remaining M3 changes.
+
+**Strict limits:** Do not run `git add`, `git commit`, `git push`, `git reset`, or discard any changes. Do not start M4. Stop and wait for my approval after reporting the results.
+
+</details>

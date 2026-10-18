@@ -195,3 +195,84 @@ def test_restore_maintenance_settles_lingering_reservation(session: Session):
     assert restored.status == ItemStatus.AVAILABLE
     assert lingering_loan.status == LoanStatus.CANCELLED
     assert lingering_loan.cancelled_at == now
+
+
+def test_create_item_service(session: Session):
+    """ItemService.create_item initializes item in AVAILABLE status."""
+    item = ItemService.create_item(
+        session,
+        name=" Jigsaw 500W ",
+        category=" Saws ",
+        replacement_value=35000,
+        condition_note="Brand new in box",
+    )
+    assert item.id is not None
+    assert item.name == "Jigsaw 500W"
+    assert item.category == "Saws"
+    assert item.replacement_value == 35000
+    assert item.condition_note == "Brand new in box"
+    assert item.status == ItemStatus.AVAILABLE
+
+    # Validation errors
+    with pytest.raises(ValueError, match="name"):
+        ItemService.create_item(session, name="  ", category="Saws", replacement_value=1000)
+    with pytest.raises(ValueError, match="category"):
+        ItemService.create_item(session, name="Tool", category="  ", replacement_value=1000)
+    with pytest.raises(ValueError, match="paise"):
+        ItemService.create_item(session, name="Tool", category="Saws", replacement_value=0)
+
+
+def test_update_item_service(session: Session):
+    """ItemService.update_item updates metadata without altering status."""
+    item = ItemService.create_item(
+        session, name="Drill A", category="Drills", replacement_value=20000
+    )
+    assert item.status == ItemStatus.AVAILABLE
+
+    updated = ItemService.update_item(
+        session,
+        item.id,
+        name="Drill A Pro",
+        category="Heavy Drills",
+        replacement_value=25000,
+        condition_note="Upgraded chuck",
+    )
+    assert updated.name == "Drill A Pro"
+    assert updated.category == "Heavy Drills"
+    assert updated.replacement_value == 25000
+    assert updated.condition_note == "Upgraded chuck"
+    assert updated.status == ItemStatus.AVAILABLE
+
+    # Negative replacement value raises ValueError
+    with pytest.raises(ValueError, match="paise"):
+        ItemService.update_item(session, item.id, replacement_value=-10)
+
+    # Nonexistent item raises EntityNotFoundError
+    with pytest.raises(EntityNotFoundError):
+        ItemService.update_item(session, 99999, name="Ghost")
+
+
+def test_list_items_service(session: Session):
+    """ItemService.list_items supports category/status filtering and pagination."""
+    i1 = ItemService.create_item(
+        session, name="Circular Saw", category="Saws", replacement_value=50000
+    )
+    i2 = ItemService.create_item(
+        session, name="Hammer Drill", category="Drills", replacement_value=40000
+    )
+    ItemService.set_maintenance(session, i2.id)
+
+    all_items = ItemService.list_items(session)
+    assert len(all_items) >= 2
+
+    saws_only = ItemService.list_items(session, category="Saws")
+    assert any(item.id == i1.id for item in saws_only)
+    assert all(item.category == "Saws" for item in saws_only)
+
+    avail_only = ItemService.list_items(session, status=ItemStatus.AVAILABLE)
+    assert any(item.id == i1.id for item in avail_only)
+    assert all(item.status == ItemStatus.AVAILABLE for item in avail_only)
+
+    maint_only = ItemService.list_items(session, status=ItemStatus.UNDER_MAINTENANCE)
+    assert any(item.id == i2.id for item in maint_only)
+    assert all(item.status == ItemStatus.UNDER_MAINTENANCE for item in maint_only)

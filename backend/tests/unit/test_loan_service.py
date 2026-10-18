@@ -478,3 +478,36 @@ def test_checkout_with_outcome_success_and_expiry(session: Session):
     assert "expired" in outcome_expired.rejection_reason.lower()
     assert loan2.status == LoanStatus.CANCELLED
     assert item2.status == ItemStatus.AVAILABLE
+
+
+def test_list_loans_service(session: Session):
+    """LoanService.list_loans supports member_id, item_id, status filtering and pagination."""
+    now = datetime(2026, 10, 15, 10, 0, 0, tzinfo=UTC)
+    m1 = Member(name="Member 1", phone="+91-1", join_date=now)
+    m2 = Member(name="Member 2", phone="+91-2", join_date=now)
+    i1 = Item(name="Item 1", category="Cat", replacement_value=10000)
+    i2 = Item(name="Item 2", category="Cat", replacement_value=10000)
+    session.add_all([m1, m2, i1, i2])
+    session.flush()
+
+    l1 = LoanService.reserve(session, member_id=m1.id, item_id=i1.id, now=now)
+    l2 = LoanService.reserve(session, member_id=m2.id, item_id=i2.id, now=now)
+    LoanService.checkout(session, loan_id=l2.id, now=now + timedelta(hours=1))
+
+    all_loans = LoanService.list_loans(session)
+    assert len(all_loans) >= 2
+
+    # Filter by member
+    m1_loans = LoanService.list_loans(session, member_id=m1.id)
+    assert len(m1_loans) == 1
+    assert m1_loans[0].id == l1.id
+
+    # Filter by item
+    i2_loans = LoanService.list_loans(session, item_id=i2.id)
+    assert len(i2_loans) == 1
+    assert i2_loans[0].id == l2.id
+
+    # Filter by status
+    reserved_loans = LoanService.list_loans(session, status=LoanStatus.RESERVED)
+    assert any(loan.id == l1.id for loan in reserved_loans)
+    assert not any(loan.id == l2.id for loan in reserved_loans)

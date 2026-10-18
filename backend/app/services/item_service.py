@@ -145,3 +145,85 @@ class ItemService:
 
         session.flush()
         return item
+
+    @classmethod
+    def list_items(
+        cls,
+        session: Session,
+        category: str | None = None,
+        status: ItemStatus | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[Item]:
+        """List items with optional category/status filters and pagination."""
+        query = session.query(Item)
+        if category is not None:
+            query = query.filter(Item.category == category)
+        if status is not None:
+            query = query.filter(Item.status == status)
+        return query.order_by(Item.id.asc()).offset(offset).limit(limit).all()
+
+    @classmethod
+    def create_item(
+        cls,
+        session: Session,
+        name: str,
+        category: str,
+        replacement_value: int,
+        condition_note: str | None = None,
+    ) -> Item:
+        """Create a new item in AVAILABLE status."""
+        cleaned_name = name.strip()
+        cleaned_category = category.strip()
+        if not cleaned_name:
+            raise ValueError("Item name must not be empty.")
+        if not cleaned_category:
+            raise ValueError("Item category must not be empty.")
+        if replacement_value <= 0:
+            raise ValueError("Replacement value must be greater than 0 paise.")
+
+        item = Item(
+            name=cleaned_name,
+            category=cleaned_category,
+            replacement_value=replacement_value,
+            condition_note=condition_note.strip() if condition_note else None,
+            status=ItemStatus.AVAILABLE,
+        )
+        session.add(item)
+        session.flush()
+        return item
+
+    @classmethod
+    def update_item(
+        cls,
+        session: Session,
+        item_id: int,
+        name: str | None = None,
+        category: str | None = None,
+        replacement_value: int | None = None,
+        condition_note: str | None = None,
+    ) -> Item:
+        """Update permitted metadata (name, category, replacement_value, condition_note).
+
+        Note: Status cannot be updated via this method; maintenance transitions
+        must use set_maintenance() and restore_maintenance().
+        """
+        item = cls.get_item(session, item_id)
+        if name is not None:
+            cleaned_name = name.strip()
+            if not cleaned_name:
+                raise ValueError("Item name must not be empty.")
+            item.name = cleaned_name
+        if category is not None:
+            cleaned_category = category.strip()
+            if not cleaned_category:
+                raise ValueError("Item category must not be empty.")
+            item.category = cleaned_category
+        if replacement_value is not None:
+            if replacement_value <= 0:
+                raise ValueError("Replacement value must be greater than 0 paise.")
+            item.replacement_value = replacement_value
+        if condition_note is not None:
+            item.condition_note = condition_note.strip() if condition_note else None
+        session.flush()
+        return item

@@ -6,9 +6,9 @@ A tool-library lending system designed to manage equipment reservations, check-o
 
 **Repository:** [Equipment_rental_desk](https://github.com/AbinayaB04/Equipment_rental_desk)
 
-**Current milestone:** M2 — Business rules (Implemented, pending review)
+**Current milestone:** M3 — API implementation (Completed, ready for milestone commit)
 
-> **Implementation status:** M2 implements pure domain rules and application services for equipment reservations, checkouts, returns, late-fee calculations, borrowing eligibility, payments, member suspensions, and maintenance handling with pessimistic concurrency locking. M3 API endpoints, M4 UI, and M5 deployment remain planned.
+> **Implementation status:** M0 scaffold, M1 domain models/migrations/seeds, and M2 business rules/concurrency are completed and committed. M3 implements the complete backend REST API (shared API foundation, member/item CRUD, loan lifecycle, payments, member statements, overdue loans, and reviewer test clock) with full test coverage (201 passing tests). M4 UI, M5 deployment, and M6 final documentation remain planned.
 
 ---
 
@@ -468,11 +468,11 @@ The project is organized into seven milestones, M0–M6, following the assignmen
 
 | Milestone | Focus | Status |
 |---|---|---|
-| M0 | Scaffold, health endpoint, frontend build, Docker Compose, documentation | In progress / verification |
-| M1 | Database schema, migrations, and seed data | Planned |
-| M2 | Domain rules and unit tests | Planned |
-| M3 | API endpoints, validation, transactions, and concurrency | Planned |
-| M4 | Expanded integration and concurrency tests | Planned |
+| M0 | Scaffold, health endpoint, frontend build, Docker Compose, documentation | Complete (commit `2f56c06`) |
+| M1 | Database schema, migrations, and seed data | Complete (commit `e039207`) |
+| M2 | Domain rules and unit tests | Complete (commit `dfe8100`) |
+| M3 | API endpoints, validation, transactions, and concurrency | Complete (ready for milestone commit) |
+| M4 | User interface (React, TypeScript, Vite) | Planned |
 | M5 | Deployment and deployment documentation | Planned |
 | M6 | Final coverage report, review, and submission cleanup | Planned |
 

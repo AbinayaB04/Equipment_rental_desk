@@ -1,6 +1,7 @@
 """Member application service handling eligibility, payments, and account status."""
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -152,3 +153,114 @@ class MemberService:
         session.add(payment)
         session.flush()
         return payment
+
+    @classmethod
+    def list_members(
+        cls,
+        session: Session,
+        status: MemberStatus | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[Member]:
+        """List members with optional status filter and pagination."""
+        query = session.query(Member)
+        if status is not None:
+            query = query.filter(Member.status == status)
+        return query.order_by(Member.id.asc()).offset(offset).limit(limit).all()
+
+    @classmethod
+    def create_member(
+        cls,
+        session: Session,
+        name: str,
+        phone: str,
+        now: datetime | None = None,
+    ) -> Member:
+        """Create a new member with active status and zero balance."""
+        cleaned_name = name.strip()
+        cleaned_phone = phone.strip()
+        if not cleaned_name:
+            raise ValueError("Member name must not be empty.")
+        if not cleaned_phone:
+            raise ValueError("Member phone must not be empty.")
+
+        current_time = now or datetime.now(UTC)
+        member = Member(
+            name=cleaned_name,
+            phone=cleaned_phone,
+            join_date=current_time,
+            status=MemberStatus.ACTIVE,
+            running_fee_balance=0,
+        )
+        session.add(member)
+        session.flush()
+        return member
+
+    @classmethod
+    def update_member(
+        cls,
+        session: Session,
+        member_id: int,
+        name: str | None = None,
+        phone: str | None = None,
+    ) -> Member:
+        """Update permitted profile fields (name, phone) of an existing member."""
+        member = cls.get_member(session, member_id)
+        if name is not None:
+            cleaned_name = name.strip()
+            if not cleaned_name:
+                raise ValueError("Member name must not be empty.")
+            member.name = cleaned_name
+        if phone is not None:
+            cleaned_phone = phone.strip()
+            if not cleaned_phone:
+                raise ValueError("Member phone must not be empty.")
+            member.phone = cleaned_phone
+        session.flush()
+        return member
+
+    @classmethod
+    def get_statement(
+        cls,
+        session: Session,
+        member_id: int,
+    ) -> dict[str, Any]:
+        """Retrieve account statement for a member.
+
+        Includes:
+        - Member details
+        - All loans (historical, active, overdue, returned, cancelled), ordered newest first
+        - All payments, ordered newest first
+        - Total late fees charged
+        - Total payments recorded
+        - Current running fee balance
+        """
+        member = session.get(Member, member_id)
+        if member is None:
+            raise EntityNotFoundError(f"Member with ID {member_id} not found.")
+
+        loans = (
+            session.query(Loan)
+            .filter(Loan.member_id == member_id)
+            .order_by(Loan.reserved_at.desc(), Loan.id.desc())
+            .all()
+        )
+        payments = (
+            session.query(Payment)
+            .filter(Payment.member_id == member_id)
+            .order_by(Payment.paid_at.desc(), Payment.id.desc())
+            .all()
+        )
+
+        total_fees_charged = sum(loan.fee_charged for loan in loans)
+        total_payments_recorded = sum(payment.amount for payment in payments)
+
+        return {
+            "member_id": member.id,
+            "member": member,
+            "loans": loans,
+            "payments": payments,
+            "total_fees_charged": total_fees_charged,
+            "total_payments_recorded": total_payments_recorded,
+            "current_outstanding_balance": member.running_fee_balance,
+        }

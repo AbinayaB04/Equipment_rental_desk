@@ -55,8 +55,8 @@ These are implementation plans, not claims that all handlers already exist. Befo
 |---|---|---|
 | M0 Scaffold | 2026-10-17 | 2f56c06 |
 | M1 Domain model | 2026-10-17 | e039207 |
-| M2 Business rules | In progress | Pending review |
-| M3 API | Not completed | — |
+| M2 Business rules | 2026-10-18 | dfe8100 |
+| M3 API | Ready for commit | Pending commit |
 | M4 UI | Not completed | — |
 | M5 Deployment | Not completed | — |
 | M6 Documentation (v1.0) | Not completed | — |

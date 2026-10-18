@@ -63,18 +63,26 @@ class LoanService:
         cls,
         session: Session,
         now: datetime | None = None,
+        member_id: int | None = None,
+        item_id: int | None = None,
+        limit: int = 100,
+        offset: int = 0,
     ) -> list[Loan]:
-        """Query currently overdue loans dynamically based on due_at."""
-        current_time = now or datetime.now(UTC)
-        return (
-            session.query(Loan)
-            .filter(
-                Loan.status == LoanStatus.CHECKED_OUT,
-                Loan.due_at.is_not(None),
-                Loan.due_at < current_time,
-            )
-            .all()
+        """Query currently overdue loans dynamically based on due_at.
+
+        Supports optional member/item filters and pagination.
+        """
+        current_time = ensure_utc(now) or datetime.now(UTC)
+        query = session.query(Loan).filter(
+            Loan.status == LoanStatus.CHECKED_OUT,
+            Loan.due_at.is_not(None),
+            Loan.due_at < current_time,
         )
+        if member_id is not None:
+            query = query.filter(Loan.member_id == member_id)
+        if item_id is not None:
+            query = query.filter(Loan.item_id == item_id)
+        return query.order_by(Loan.due_at.asc(), Loan.id.asc()).offset(offset).limit(limit).all()
 
     @classmethod
     def reserve(
@@ -417,3 +425,23 @@ class LoanService:
 
         session.flush()
         return loan
+
+    @classmethod
+    def list_loans(
+        cls,
+        session: Session,
+        member_id: int | None = None,
+        item_id: int | None = None,
+        status: LoanStatus | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[Loan]:
+        """List loans with optional member/item/status filters and pagination."""
+        query = session.query(Loan)
+        if member_id is not None:
+            query = query.filter(Loan.member_id == member_id)
+        if item_id is not None:
+            query = query.filter(Loan.item_id == item_id)
+        if status is not None:
+            query = query.filter(Loan.status == status)
+        return query.order_by(Loan.id.asc()).offset(offset).limit(limit).all()
