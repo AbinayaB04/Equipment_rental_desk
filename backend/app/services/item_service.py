@@ -2,10 +2,12 @@
 
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.clock import ensure_utc
 from app.domain.exceptions import (
+    EntityHasAssociatedRecordsError,
     EntityNotFoundError,
     InvalidItemStateError,
 )
@@ -30,12 +32,18 @@ class ItemService:
     def get_effective_status(
         cls,
         session: Session,
-        item_id: int,
+        item_or_id: Item | int,
         now: datetime | None = None,
     ) -> ItemStatus:
         """Derive the effective status of an item considering dynamic reservation expiry."""
-        item = cls.get_item(session, item_id)
-        current_time = now or datetime.now(UTC)
+        if isinstance(item_or_id, Item):
+            item = item_or_id
+            item_id = item.id
+        else:
+            item = cls.get_item(session, item_or_id)
+            item_id = item_or_id
+
+        current_time = ensure_utc(now) or datetime.now(UTC)
 
         if item.status == ItemStatus.UNDER_MAINTENANCE:
             return ItemStatus.UNDER_MAINTENANCE
@@ -154,13 +162,53 @@ class ItemService:
         status: ItemStatus | None = None,
         limit: int = 100,
         offset: int = 0,
+        now: datetime | None = None,
+        q: str | None = None,
     ) -> list[Item]:
-        """List items with optional category/status filters and pagination."""
+        """List items with optional search, category/status filters, and pagination."""
+        current_time = ensure_utc(now) or datetime.now(UTC)
+        cutoff = current_time - RESERVATION_DURATION
+
         query = session.query(Item)
+
+        clean_q = q.strip() if q else None
+        if clean_q:
+            query = query.filter(
+                or_(
+                    Item.name.icontains(clean_q, autoescape=True),
+                    Item.category.icontains(clean_q, autoescape=True),
+                )
+            )
+
         if category is not None:
             query = query.filter(Item.category == category)
-        if status is not None:
+
+        if status == ItemStatus.AVAILABLE:
+            expired_res = select(Loan.item_id).where(
+                Loan.status == LoanStatus.RESERVED,
+                Loan.reserved_at <= cutoff,
+            )
+            query = query.filter(
+                or_(
+                    Item.status == ItemStatus.AVAILABLE,
+                    and_(
+                        Item.status == ItemStatus.RESERVED,
+                        Item.id.in_(expired_res),
+                    ),
+                )
+            )
+        elif status == ItemStatus.RESERVED:
+            unexpired_res = select(Loan.item_id).where(
+                Loan.status == LoanStatus.RESERVED,
+                Loan.reserved_at > cutoff,
+            )
+            query = query.filter(
+                Item.status == ItemStatus.RESERVED,
+                Item.id.in_(unexpired_res),
+            )
+        elif status is not None:
             query = query.filter(Item.status == status)
+
         return query.order_by(Item.id.asc()).offset(offset).limit(limit).all()
 
     @classmethod
@@ -227,3 +275,24 @@ class ItemService:
             item.condition_note = condition_note.strip() if condition_note else None
         session.flush()
         return item
+
+    @classmethod
+    def delete_item(cls, session: Session, item_id: int) -> None:
+        """Delete an item if it has no associated loans or active reservations."""
+        item = cls.get_item(session, item_id)
+
+        # Check for associated loans (active or historical)
+        has_loans = session.query(Loan.id).filter(Loan.item_id == item_id).first() is not None
+        if has_loans:
+            raise EntityHasAssociatedRecordsError(
+                f"Cannot delete item with ID {item_id} because it has associated loan records."
+            )
+
+        # If the item's status is not safe to delete (e.g. CHECKED_OUT or RESERVED)
+        if item.status in (ItemStatus.CHECKED_OUT, ItemStatus.RESERVED):
+            raise EntityHasAssociatedRecordsError(
+                f"Cannot delete item with ID {item_id} in state {item.status.value}."
+            )
+
+        session.delete(item)
+        session.flush()

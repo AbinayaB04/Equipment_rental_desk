@@ -3330,3 +3330,243 @@ Stop after the report. Do not start Fix 3.
 is all the prompts are updated in the PROMPTS.md verify completely , make the chnages upto to date to git with proper commit message once all prompts are updated in PROMPTS.md
 
 </details>
+
+
+## Entry 48
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-20
+- **Prompt:** Synchronize project documentation (README.md, SUBMISSION.md, PROMPTS.md) with verified repository status. Verify M0–M3 completion, 231 passing tests (0 skipped), 93% backend coverage, M4 UI in progress, M5 cloud deployment pending, and absence of v1.0 tag. Preserve required headings, enforce two-page limit in SUBMISSION.md, and append Entry 48 to PROMPTS.md.
+- **Answer:** Verified repository facts against actual code, git status/log, and test suite. Updated README.md and SUBMISSION.md with accurate test counts, coverage, implemented API surface, concurrency/test-clock hardening, and current milestone progress. Appended Entry 48 to PROMPTS.md.
+- **What I did:** Synchronized README.md and SUBMISSION.md with verified repository state, preserved exact required headings within 2 pages, distinguished self-recording in prompt log, and confirmed no application code, database, or git write operations occurred.
+- **Files changed:** `README.md`, `SUBMISSION.md`, and `PROMPTS.md` (self-recording log entry).
+
+<details>
+<summary>Full prompt text (Entry 48)</summary>
+
+We are working step by step. Complete ONLY this documentation-maintenance task. Do not begin M4 frontend implementation.
+
+## Objective
+
+Bring README.md, SUBMISSION.md, and PROMPTS.md into alignment with the repository's verified current state.
+
+The latest read-only audit reported:
+- M0–M3 are committed.
+- Latest M3 commit: ddeb960.
+- Backend tests: 231 passed, 0 skipped.
+- Backend coverage: 93%.
+- Frontend: starter screen only; M4 is incomplete.
+- Cloud deployment: M5 is pending.
+- PROMPTS.md currently contains entries 1–47.
+- No v1.0 Git tag exists.
+
+Verify these facts against the current repository before relying on them. If the current state differs, use the actual repository evidence and report the discrepancy.
+
+## Step 1 — Inspect
+
+1. Read README.md and SUBMISSION.md, including their complete relevant sections.
+2. Check the assignment's required README structure and exact SUBMISSION.md headings using the available assignment specification or repository documentation.
+3. Inspect PROMPTS.md and identify its existing entry format, the latest entry number, and the latest recorded prompt.
+4. Inspect `git status` and the latest commits.
+5. Do not assume that the audit report is more authoritative than the current repository.
+
+## Step 2 — Update README.md
+
+Make minimal, accurate changes:
+- Replace outdated statements saying M3 is waiting for a commit.
+- Reflect the verified backend test results and coverage.
+- Mark M0–M3 as complete only where supported by the repository.
+- Clearly mark M4 frontend implementation and M5 cloud deployment as pending or in progress.
+- Do not claim that the application is deployed or provide invented URLs.
+- Preserve the required README structure and useful existing content.
+- Do not rewrite unrelated sections.
+
+## Step 3 — Update SUBMISSION.md
+
+Make minimal, accurate changes:
+- Reflect the actual progress of M0–M3.
+- Update test and coverage figures using verified results.
+- Keep M4 and M5 incomplete until they are actually completed.
+- Preserve every exact heading required by the assignment.
+- Keep within the assignment's approximately two-page limit.
+- Do not invent design decisions, implementation details, challenges, results, or deployment URLs.
+- If a required section needs information that cannot be verified, leave a clear placeholder and mention it in your report.
+
+## Step 4 — Update PROMPTS.md
+
+Append exactly ONE new entry after the existing final entry. Do not delete, reorder, renumber, summarize, or rewrite any existing entries.
+
+The new entry must follow the existing format in PROMPTS.md and document this documentation-maintenance task.
+
+Include:
+1. The next correct sequential entry number.
+2. Date of the task.
+3. Tool: Antigravity.
+4. Purpose: synchronize project documentation with verified repository status.
+5. The complete prompt used for this task, or the full prompt text according to the existing log convention.
+6. Files changed: README.md, SUBMISSION.md, and PROMPTS.md, distinguishing the log's self-recording from the other documentation changes.
+7. Outcome: accurately summarize what was updated and any remaining uncertainties.
+
+Important:
+- Do not falsely claim that a test, check, or requirement passed.
+- Do not log a result until you have actually verified it.
+- Do not create duplicate entries for the same task.
+- Preserve all existing prompt history exactly.
+- Follow the current PROMPTS.md formatting rather than inventing a new format.
+- If the existing log convention requires recording the final result after the task, append the entry with the verified information available now and report any result that should be recorded later. Do not modify the same entry repeatedly without explaining why.
+
+## Step 5 — Verify
+
+After editing:
+
+1. Run `git diff --check`.
+2. Review `git diff -- README.md SUBMISSION.md PROMPTS.md`.
+3. Confirm the old PROMPTS.md entries remain intact and exactly one new entry has been appended.
+4. Confirm no unrelated files were changed.
+5. Confirm required README sections and exact SUBMISSION.md headings remain correct.
+6. Check the SUBMISSION.md length against the assignment limit as far as possible.
+7. Do not rerun the entire backend test suite unless the documentation changes reveal a concrete reason to do so; this task should not change application code.
+
+## Strict restrictions
+
+- Modify only README.md, SUBMISSION.md, and PROMPTS.md.
+- Do not modify frontend, backend, tests, configuration, migrations, or deployment files.
+- Do not run `git add`, `git commit`, `git push`, `git reset`, `git checkout`, or `git tag`.
+- Do not create the v1.0 tag.
+- Do not change the database.
+- Do not begin M4.
+- Do not overwrite existing prompt history.
+
+## Final report
+
+Report:
+1. Each file changed and what changed.
+2. The new PROMPTS.md entry number.
+3. Verification commands and their actual results.
+4. Confirmation of which existing prompt entries were preserved.
+5. Any missing assignment information or placeholders requiring my review.
+6. The final Git status.
+
+Stop and wait for my review before proceeding to the next task.
+
+</details>
+## Entry 49
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-20
+- **Prompt:** Fix dynamic reservation expiry on item reads (M3/M4 prerequisite) per Problem 1 Rule 2. Update item retrieval (`GET /items/{id}`) and listing (`GET /items`) to present expired reservations (> 48h) dynamically as `AVAILABLE` and include expired reservations in `status=AVAILABLE` queries while excluding them from `status=RESERVED`, without mutating the persisted database row on read. Add API tests for item reads, availability filtering, active reservations, and reviewer test clock. Append new entry to `PROMPTS.md`.
+- **Answer:** Updated `ItemService.get_effective_status` to accept `Item | int` with UTC normalization and updated `ItemService.list_items` to dynamically include expired reservations under `status=AVAILABLE` and exclude them from `status=RESERVED`. Injected `get_request_clock` into `GET /items` and `GET /items/{id}` in `backend/app/api/routers/items.py` to serialize items with effective status while preserving read-only database purity. Added 4 comprehensive API tests in `backend/tests/api/test_items.py`. All 235 tests pass with 94% coverage and zero linter/formatting errors.
+- **What I did:** Implemented dynamic reservation expiry enforcement on read operations using the existing request clock mechanism without mutating persisted database rows. Added API tests covering dynamic expiry on single item retrieval, availability filtering, unexpired reservation retention, and reviewer test clock control. Appended Entry 49 to PROMPTS.md.
+- **Files changed:** `backend/app/services/item_service.py`, `backend/app/api/routers/items.py`, `backend/tests/api/test_items.py`, and `PROMPTS.md` (self-recording log entry).
+
+<details>
+<summary>Full prompt text (Entry 49)</summary>
+
+**Task: Fix dynamic reservation expiry on item reads — M3/M4 prerequisite**
+
+Use the authoritative assignment requirements in `PROMPTS.md`, especially Problem 1 Rule 2.
+
+The requirement states that a reservation expires after 48 hours and must be enforced at both read time and write time.
+
+The read-only audit found that `ItemService.get_effective_status()` already exists, but `GET /items` and `GET /items/{id}` return the stored status instead of applying effective reservation expiry.
+
+**Make only this fix in this task.**
+
+1. Inspect the existing item service, item API router, request-clock dependency, and API tests before editing.
+2. Update item retrieval and listing so an expired reservation is presented as `AVAILABLE`, using the existing request-clock mechanism consistently.
+3. Ensure the `status=AVAILABLE` filter includes items whose reservations have expired. Avoid changing the persisted status unless the existing domain design explicitly requires it.
+4. Add API tests for:
+   - An expired reservation returned by `GET /items/{id}`.
+   - An expired reservation included in `GET /items?status=AVAILABLE`.
+   - A reservation that has not expired remaining `RESERVED`.
+   - Consistent behavior when the reviewer test clock is used.
+5. Run the relevant API tests and report the results. Do not claim success if any test fails.
+6. Update `PROMPTS.md` by appending a new entry in the existing format. Preserve every existing prompt entry and its line endings; do not rewrite or renumber earlier entries.
+7. Do not modify README.md or SUBMISSION.md in this task.
+8. Do not implement deletion endpoints, search, frontend screens, deployment, or unrelated refactoring.
+9. Review `git diff --check`, `git diff --stat`, and `git status` before finishing.
+
+Do not commit or push. Report the files changed, the tests run and their results, any remaining concerns, and the new PROMPTS.md entry number.
+
+Stop and wait for my review before starting another task.
+
+</details>
+
+
+## Entry 50
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-20
+- **Prompt:** Add item search to the backend API via an optional `q` query parameter on `GET /items`. Search item names and categories using case-insensitive partial matching with whitespace trimming, while preserving existing category, status, pagination, and dynamic reservation-expiry behavior. Use SQLAlchemy query expressions and add comprehensive API and service tests. Append one new entry to `PROMPTS.md` preserving earlier entries.
+- **Answer:** Added optional `q` query parameter to `GET /items` in `backend/app/api/routers/items.py` and updated `ItemService.list_items` in `backend/app/services/item_service.py` with SQLAlchemy `or_(Item.name.icontains(clean_q, autoescape=True), Item.category.icontains(clean_q, autoescape=True))` filtering. Preserved current listing behavior on missing/blank queries and ensured full interoperability with category, status, pagination, and dynamic reservation expiry. Added 6 API test cases and 1 service unit test. All 242 tests pass with 94% coverage and zero linter/formatting errors.
+- **What I did:** Implemented case-insensitive partial search across item names and categories using SQLAlchemy query expressions in `ItemService.list_items`, exposed `q` in `GET /items`, added test coverage across partial matching, category matching, no matches, empty/whitespace queries, combined status/expired reservation filtering, and pagination. Appended Entry 50 to `PROMPTS.md`.
+- **Files changed:** `backend/app/services/item_service.py`, `backend/app/api/routers/items.py`, `backend/tests/api/test_items.py`, `backend/tests/unit/test_item_service.py`, and `PROMPTS.md` (self-recording log entry).
+
+<details>
+<summary>Full prompt text (Entry 50)</summary>
+
+**Task: Add item search to the backend API — one task only**
+
+Read the authoritative Problem 1 requirements in `PROMPTS.md` before making changes.
+
+The current `GET /items` endpoint supports category and status filtering, but the audit found no `q` search parameter. Add item search without changing unrelated behavior.
+
+### Requirements
+
+1. Inspect `backend/app/api/routers/items.py`, `backend/app/services/item_service.py`, the item model/schema, and the existing item API and service tests.
+2. Add an optional `q` query parameter to `GET /items`.
+3. Search item names and categories using case-insensitive partial matching. Trim leading and trailing whitespace from the query. If `q` is absent or blank, preserve the current listing behavior.
+4. Ensure search works together with existing `category`, `status`, `limit`, `offset`, and dynamic reservation-expiry behavior.
+5. Use SQLAlchemy query expressions rather than loading every item into Python for filtering.
+6. Add tests for:
+   - Matching an item's name partially and without case sensitivity.
+   - Matching an item's category.
+   - No matches.
+   - Missing and whitespace-only `q`.
+   - Search combined with status filtering and expired reservations.
+   - Pagination and category filters continuing to work.
+7. Run the focused tests, then the full backend suite with the configured PostgreSQL database. Run Ruff checks and formatting checks.
+8. Append one new entry to `PROMPTS.md` in the existing format. Preserve Entries 1–49 exactly and avoid normalizing line endings.
+9. Do not edit `README.md` or `SUBMISSION.md`. Do not implement deletion endpoints, frontend UI, deployment, or unrelated refactoring.
+10. Do not commit or push.
+
+Before finishing, report changed files, tests and exact results, coverage if run, the new prompt-entry number, and any remaining concerns. Inspect `git diff --check`, `git diff --stat`, and `git status`. Stop and wait for my review before starting another task.
+
+</details>
+
+
+## Entry 51
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-20
+- **Prompt:** Implement missing DELETE endpoints for members and items (`DELETE /members/{id}` and `DELETE /items/{id}`) following existing FastAPI router, service, repository, and error-handling patterns. Return HTTP 204 on success, HTTP 404 for nonexistent IDs, and HTTP 409 when records cannot safely be deleted due to associated loans, payments, or balance history. Add comprehensive API and unit tests, verify against PostgreSQL database with full test suite, run Ruff checks, formatting checks, and git diff --check, and append Entry 51 to `PROMPTS.md`.
+- **Answer:** Implemented `DELETE /members/{member_id}` and `DELETE /items/{item_id}` endpoints in `backend/app/api/routers/members.py` and `backend/app/api/routers/items.py`. Implemented `MemberService.delete_member` and `ItemService.delete_item` with foreign key and historical integrity checks, raising `EntityHasAssociatedRecordsError` mapped to HTTP 409 Conflict with machine code `CANNOT_DELETE_ASSOCIATED_RECORDS`. Added 6 API tests and 5 unit tests for members, and 6 API tests and 5 unit tests for items (22 new tests total). All 264 tests passed with 94% coverage. Ruff checks, formatting checks, and git diff --check passed with zero errors.
+- **What I did:** Added `EntityHasAssociatedRecordsError` domain exception, mapped it in `app.api.errors.DOMAIN_EXCEPTION_MAP` to HTTP 409 Conflict with code `CANNOT_DELETE_ASSOCIATED_RECORDS`, implemented safe deletion in `MemberService.delete_member` (rejecting deletion if associated loans, payments, or balance exist) and `ItemService.delete_item` (rejecting deletion if loan records exist or item is currently checked out/reserved), added router endpoints `@router.delete("/{member_id}")` and `@router.delete("/{item_id}")` returning HTTP 204 No Content, added comprehensive API and unit test suites covering success, 404 not found, and 409 conflict scenarios, ran full test suite and quality gates, and appended Entry 51 to `PROMPTS.md`.
+- **Files changed:** `backend/app/domain/exceptions.py`, `backend/app/domain/__init__.py`, `backend/app/api/errors.py`, `backend/app/services/member_service.py`, `backend/app/services/item_service.py`, `backend/app/api/routers/members.py`, `backend/app/api/routers/items.py`, `backend/tests/api/test_members.py`, `backend/tests/api/test_items.py`, `backend/tests/unit/test_member_service.py`, `backend/tests/unit/test_item_service.py`, and `PROMPTS.md` (self-recording log entry).
+
+<details>
+<summary>Full prompt text (Entry 51)</summary>
+
+**Task: Implement missing DELETE endpoints for members and items — one task only**
+
+Read the Problem 1 requirements in `PROMPTS.md` and inspect the existing backend routes, services, models, schemas, and tests before changing anything.
+
+The earlier audit found that DELETE endpoints for members and items were missing. Verify this against the current code, then implement only what is actually missing.
+
+### Requirements
+
+1. Add `DELETE /members/{id}` and `DELETE /items/{id}` if they do not already exist.
+2. Follow the existing FastAPI router, service, repository, and error-handling patterns.
+3. Return appropriate HTTP status codes for successful deletion, missing records, and records that cannot safely be deleted.
+4. Inspect foreign-key relationships and existing loans, reservations, payments, and statements before choosing deletion behavior. Do not break historical records or bypass database integrity constraints.
+5. If a record cannot safely be deleted because it has related records, return a consistent, documented client error. Do not silently delete related history.
+6. Add API tests for successful deletion where permitted, nonexistent IDs, and records with related history or other deletion restrictions.
+7. Run the focused tests and then the full backend suite using the configured PostgreSQL database. Run Ruff checks, formatting checks, and `git diff --check`.
+8. Append the next sequential entry to `PROMPTS.md`, preserving all previous entries and existing line endings.
+9. Do not edit `README.md` or `SUBMISSION.md`; preserve their existing uncommitted changes.
+10. Do not implement frontend features, deployment, unrelated refactoring, or any other endpoints.
+11. Do not commit or push.
+
+Before finishing, report the exact endpoints added or confirmed, deletion rules, changed files, test results, coverage if run, prompt-entry number, and `git status`. Stop and wait for my review before starting another task.
+
+</details>

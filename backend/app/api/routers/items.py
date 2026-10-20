@@ -19,6 +19,11 @@ router = APIRouter()
 @router.get("", response_model=list[ItemResponse])
 def list_items(
     db: Annotated[Session, Depends(get_db)],
+    now: Annotated[datetime, Depends(get_request_clock)],
+    q: Annotated[
+        str | None,
+        Query(description="Search item names and categories (case-insensitive)"),
+    ] = None,
     category: Annotated[str | None, Query(description="Filter by item category")] = None,
     status_filter: Annotated[
         ItemStatus | None,
@@ -27,14 +32,27 @@ def list_items(
     limit: PaginationLimit = 100,
     offset: PaginationOffset = 0,
 ) -> list[ItemResponse]:
-    """List items with optional category/status filters and pagination."""
-    return ItemService.list_items(
+    """List items with optional search, category/status filters, and pagination."""
+    items = ItemService.list_items(
         db,
         category=category,
         status=status_filter,
         limit=limit,
         offset=offset,
+        now=now,
+        q=q,
     )
+    return [
+        ItemResponse(
+            id=item.id,
+            name=item.name,
+            category=item.category,
+            replacement_value=item.replacement_value,
+            condition_note=item.condition_note,
+            status=ItemService.get_effective_status(db, item, now=now),
+        )
+        for item in items
+    ]
 
 
 @router.post("", response_model=ItemResponse, status_code=status.HTTP_201_CREATED)
@@ -56,9 +74,18 @@ def create_item(
 def get_item(
     item_id: PositiveId,
     db: Annotated[Session, Depends(get_db)],
+    now: Annotated[datetime, Depends(get_request_clock)],
 ) -> ItemResponse:
     """Retrieve a single equipment item by ID."""
-    return ItemService.get_item(db, item_id=item_id)
+    item = ItemService.get_item(db, item_id=item_id)
+    return ItemResponse(
+        id=item.id,
+        name=item.name,
+        category=item.category,
+        replacement_value=item.replacement_value,
+        condition_note=item.condition_note,
+        status=ItemService.get_effective_status(db, item, now=now),
+    )
 
 
 @router.patch("/{item_id}", response_model=ItemResponse)
@@ -76,6 +103,15 @@ def update_item(
         replacement_value=payload.replacement_value,
         condition_note=payload.condition_note,
     )
+
+
+@router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_item(
+    item_id: PositiveId,
+    db: Annotated[Session, Depends(get_db)],
+) -> None:
+    """Delete an item if it has no associated loan records."""
+    ItemService.delete_item(db, item_id=item_id)
 
 
 @router.post("/{item_id}/maintenance", response_model=ItemResponse)

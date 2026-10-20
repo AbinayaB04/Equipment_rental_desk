@@ -14,6 +14,7 @@ from app.core.clock import TestClockError
 from app.domain.exceptions import (
     ActiveLoanLimitExceededError,
     DomainError,
+    EntityHasAssociatedRecordsError,
     EntityNotFoundError,
     InvalidItemStateError,
     InvalidLoanStateError,
@@ -32,6 +33,11 @@ logger = logging.getLogger("app.api.errors")
 # Explicit mapping of known domain exceptions to HTTP status, error title, and machine code
 DOMAIN_EXCEPTION_MAP: dict[type[DomainError], tuple[int, str, str]] = {
     EntityNotFoundError: (status.HTTP_404_NOT_FOUND, "Not Found", "NOT_FOUND"),
+    EntityHasAssociatedRecordsError: (
+        status.HTTP_409_CONFLICT,
+        "Conflict",
+        "CANNOT_DELETE_ASSOCIATED_RECORDS",
+    ),
     MemberSuspendedError: (status.HTTP_403_FORBIDDEN, "Forbidden", "MEMBER_SUSPENDED"),
     MemberBalanceBlockError: (status.HTTP_400_BAD_REQUEST, "Bad Request", "BALANCE_LIMIT_EXCEEDED"),
     MemberOverdueBlockError: (status.HTTP_400_BAD_REQUEST, "Bad Request", "OVERDUE_RESTRICTION"),

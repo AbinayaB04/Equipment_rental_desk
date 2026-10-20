@@ -5,7 +5,11 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy.orm import Session
 
-from app.domain.exceptions import EntityNotFoundError, InvalidItemStateError
+from app.domain.exceptions import (
+    EntityHasAssociatedRecordsError,
+    EntityNotFoundError,
+    InvalidItemStateError,
+)
 from app.models.item import Item, ItemStatus
 from app.models.loan import Loan, LoanStatus
 from app.models.member import Member
@@ -276,3 +280,95 @@ def test_list_items_service(session: Session):
     maint_only = ItemService.list_items(session, status=ItemStatus.UNDER_MAINTENANCE)
     assert any(item.id == i2.id for item in maint_only)
     assert all(item.status == ItemStatus.UNDER_MAINTENANCE for item in maint_only)
+
+
+def test_list_items_service_search(session: Session):
+    """ItemService.list_items supports case-insensitive partial search on name and category."""
+    i1 = ItemService.create_item(
+        session, name="Makita Router 1/2-inch", category="Woodworking", replacement_value=45000
+    )
+    i2 = ItemService.create_item(
+        session, name="Angle Grinder 4-1/2-inch", category="Metalworking", replacement_value=30000
+    )
+
+    # Search by name substring
+    name_res = ItemService.list_items(session, q="router")
+    assert any(item.id == i1.id for item in name_res)
+    assert not any(item.id == i2.id for item in name_res)
+
+    # Search by category substring
+    cat_res = ItemService.list_items(session, q="metal")
+    assert any(item.id == i2.id for item in cat_res)
+    assert not any(item.id == i1.id for item in cat_res)
+
+    # Whitespace-only search returns all items
+    ws_res = ItemService.list_items(session, q="   ")
+    assert len(ws_res) >= 2
+
+
+def test_delete_item_service_success(session: Session):
+    """ItemService.delete_item deletes an available unborrowed item successfully."""
+    item = Item(name="Old Ladder", category="Ladders", replacement_value=12000)
+    session.add(item)
+    session.flush()
+
+    ItemService.delete_item(session, item.id)
+    session.flush()
+
+    with pytest.raises(EntityNotFoundError):
+        ItemService.get_item(session, item.id)
+
+
+def test_delete_item_service_in_maintenance_success(session: Session):
+    """ItemService.delete_item deletes an unborrowed maintenance item successfully."""
+    item = Item(
+        name="Broken Level",
+        category="Levels",
+        replacement_value=4000,
+        status=ItemStatus.UNDER_MAINTENANCE,
+    )
+    session.add(item)
+    session.flush()
+
+    ItemService.delete_item(session, item.id)
+    session.flush()
+
+    with pytest.raises(EntityNotFoundError):
+        ItemService.get_item(session, item.id)
+
+
+def test_delete_item_service_nonexistent(session: Session):
+    """ItemService.delete_item raises EntityNotFoundError for missing item."""
+    with pytest.raises(EntityNotFoundError):
+        ItemService.delete_item(session, 999999)
+
+
+def test_delete_item_service_with_loan_rejected(session: Session):
+    """ItemService.delete_item raises EntityHasAssociatedRecordsError when item has loan records."""
+    now = datetime(2026, 10, 15, 10, 0, 0, tzinfo=UTC)
+    member = Member(name="Borrower", phone="+91-99999-22222", join_date=now)
+    item = Item(name="Loaned Item", category="Tools", replacement_value=8000)
+    session.add_all([member, item])
+    session.flush()
+
+    loan = Loan(member_id=member.id, item_id=item.id, reserved_at=now, status=LoanStatus.RESERVED)
+    session.add(loan)
+    session.flush()
+
+    with pytest.raises(EntityHasAssociatedRecordsError):
+        ItemService.delete_item(session, item.id)
+
+
+def test_delete_item_service_checked_out_state_rejected(session: Session):
+    """ItemService.delete_item raises EntityHasAssociatedRecordsError if CHECKED_OUT."""
+    item = Item(
+        name="Active Tool",
+        category="Tools",
+        replacement_value=8000,
+        status=ItemStatus.CHECKED_OUT,
+    )
+    session.add(item)
+    session.flush()
+
+    with pytest.raises(EntityHasAssociatedRecordsError):
+        ItemService.delete_item(session, item.id)

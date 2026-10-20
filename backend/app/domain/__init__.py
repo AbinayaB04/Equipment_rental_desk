@@ -11,6 +11,7 @@ from app.domain.eligibility import (
 from app.domain.exceptions import (
     ActiveLoanLimitExceededError,
     DomainError,
+    EntityHasAssociatedRecordsError,
     EntityNotFoundError,
     InvalidItemStateError,
     InvalidLoanStateError,
@@ -38,6 +39,7 @@ __all__ = [
     "ActiveLoanLimitExceededError",
     "DomainError",
     "EligibilityResult",
+    "EntityHasAssociatedRecordsError",
     "EntityNotFoundError",
     "InvalidItemStateError",
     "InvalidLoanStateError",

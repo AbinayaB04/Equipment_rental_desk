@@ -70,6 +70,15 @@ def update_member(
     )
 
 
+@router.delete("/{member_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_member(
+    member_id: PositiveId,
+    db: Annotated[Session, Depends(get_db)],
+) -> None:
+    """Delete a member if they have no associated loans, payments, or balance."""
+    MemberService.delete_member(db, member_id=member_id)
+
+
 @router.post("/{member_id}/suspend", response_model=MemberResponse)
 def suspend_member(
     member_id: PositiveId,

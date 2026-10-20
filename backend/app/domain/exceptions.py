@@ -55,3 +55,7 @@ class InvalidPaymentAmountError(DomainError):
 
 class InvalidItemStateError(DomainError):
     """Raised when attempting an invalid item state transition."""
+
+
+class EntityHasAssociatedRecordsError(DomainError):
+    """Raised when attempting to delete an entity with associated records."""

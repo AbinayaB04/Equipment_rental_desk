@@ -1,6 +1,7 @@
 """Focused API tests for Member endpoints."""
 
 from collections.abc import Generator
+from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,6 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.main import create_app
+from app.models.member import Member
+from app.models.payment import Payment
 
 
 @pytest.fixture
@@ -254,3 +257,88 @@ def test_update_member_normalizes_whitespace(client: TestClient):
     assert res.status_code == 200
     assert res.json()["name"] == "Iris Murdoch"
     assert res.json()["phone"] == "+91-98765-88888"
+
+
+def test_delete_member_success(client: TestClient):
+    """DELETE /members/{id} deletes a member with no history and returns 204."""
+    created = client.post("/members", json={"name": "Delete Me", "phone": "+91-99999-00001"}).json()
+    mid = created["id"]
+
+    res = client.delete(f"/members/{mid}")
+    assert res.status_code == 204
+    assert res.text == ""
+
+    # Verify member is gone
+    get_res = client.get(f"/members/{mid}")
+    assert get_res.status_code == 404
+    assert get_res.json()["code"] == "NOT_FOUND"
+
+
+def test_delete_member_nonexistent(client: TestClient):
+    """DELETE /members/{id} returns 404 when member does not exist."""
+    res = client.delete("/members/999999")
+    assert res.status_code == 404
+    assert res.json()["code"] == "NOT_FOUND"
+
+
+def test_delete_member_with_loan_conflict(client: TestClient):
+    """DELETE /members/{id} returns 409 when member has an associated loan."""
+    m = client.post("/members", json={"name": "Borrower", "phone": "+91-99999-00002"}).json()
+    i = client.post(
+        "/items",
+        json={"name": "Drill", "category": "Tools", "replacement_value": 50000},
+    ).json()
+
+    # Reserve loan
+    loan_res = client.post("/loans/reserve", json={"member_id": m["id"], "item_id": i["id"]})
+    assert loan_res.status_code == 201
+
+    # Attempt delete
+    res = client.delete(f"/members/{m['id']}")
+    assert res.status_code == 409
+    assert res.json()["code"] == "CANNOT_DELETE_ASSOCIATED_RECORDS"
+    assert "associated loan" in res.json()["detail"].lower()
+
+
+def test_delete_member_with_payment_conflict(client: TestClient, session: Session):
+    """DELETE /members/{id} returns 409 when member has a payment record."""
+    m = client.post("/members", json={"name": "Payer", "phone": "+91-99999-00003"}).json()
+    mid = m["id"]
+
+    # Record a payment directly via session
+    payment = Payment(member_id=mid, amount=1000, paid_at=datetime.now(UTC), note="Initial fee")
+    session.add(payment)
+    session.commit()
+
+    res = client.delete(f"/members/{mid}")
+    assert res.status_code == 409
+    assert res.json()["code"] == "CANNOT_DELETE_ASSOCIATED_RECORDS"
+    assert "payment" in res.json()["detail"].lower()
+
+
+def test_delete_member_with_outstanding_balance_conflict(client: TestClient, session: Session):
+    """DELETE /members/{id} returns 409 when member has an outstanding fee balance."""
+    m = client.post("/members", json={"name": "Debtor", "phone": "+91-99999-00004"}).json()
+    mid = m["id"]
+
+    db_m = session.get(Member, mid)
+    assert db_m is not None
+    db_m.running_fee_balance = 5000
+    session.commit()
+
+    res = client.delete(f"/members/{mid}")
+    assert res.status_code == 409
+    assert res.json()["code"] == "CANNOT_DELETE_ASSOCIATED_RECORDS"
+    assert "outstanding balance" in res.json()["detail"].lower()
+
+
+def test_delete_member_api_prefix_alias(client: TestClient):
+    """DELETE /api/members/{id} works identically via alias route."""
+    m = client.post("/members", json={"name": "Alias Test", "phone": "+91-99999-00005"}).json()
+    mid = m["id"]
+
+    res = client.delete(f"/api/members/{mid}")
+    assert res.status_code == 204
+
+    get_res = client.get(f"/api/members/{mid}")
+    assert get_res.status_code == 404

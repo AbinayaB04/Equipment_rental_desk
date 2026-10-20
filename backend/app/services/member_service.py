@@ -12,6 +12,7 @@ from app.domain.eligibility import (
     assess_borrow_eligibility,
 )
 from app.domain.exceptions import (
+    EntityHasAssociatedRecordsError,
     EntityNotFoundError,
     InvalidPaymentAmountError,
     OverpaymentError,
@@ -264,3 +265,39 @@ class MemberService:
             "total_payments_recorded": total_payments_recorded,
             "current_outstanding_balance": member.running_fee_balance,
         }
+
+    @classmethod
+    def delete_member(cls, session: Session, member_id: int) -> None:
+        """Delete a member if they have no associated loans, payments, or balance."""
+        member = session.get(Member, member_id)
+        if member is None:
+            raise EntityNotFoundError(f"Member with ID {member_id} not found.")
+
+        # Check for associated loans (active or historical)
+        has_loans = session.query(Loan.id).filter(Loan.member_id == member_id).first() is not None
+        if has_loans:
+            raise EntityHasAssociatedRecordsError(
+                f"Cannot delete member with ID {member_id} "
+                "because they have associated loan records."
+            )
+
+        # Check for associated payments
+        has_payments = (
+            session.query(Payment.id).filter(Payment.member_id == member_id).first() is not None
+        )
+        if has_payments:
+            raise EntityHasAssociatedRecordsError(
+                f"Cannot delete member with ID {member_id} "
+                "because they have associated payment records."
+            )
+
+        # Check for outstanding balance
+        if member.running_fee_balance > 0:
+            bal_r = member.running_fee_balance / 100
+            raise EntityHasAssociatedRecordsError(
+                f"Cannot delete member with ID {member_id} "
+                f"because they have an outstanding balance of ₹{bal_r:.2f}."
+            )
+
+        session.delete(member)
+        session.flush()

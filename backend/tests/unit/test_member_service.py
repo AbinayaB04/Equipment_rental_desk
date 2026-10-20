@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.domain.exceptions import (
+    EntityHasAssociatedRecordsError,
     EntityNotFoundError,
     InvalidPaymentAmountError,
     MemberBalanceBlockError,
@@ -15,6 +16,7 @@ from app.domain.exceptions import (
 from app.models.item import Item
 from app.models.loan import Loan, LoanStatus
 from app.models.member import Member, MemberStatus
+from app.models.payment import Payment
 from app.services.member_service import MemberService
 
 
@@ -310,3 +312,70 @@ def test_get_statement_service(session: Session):
     assert stmt2["total_fees_charged"] == 3000
     assert stmt2["total_payments_recorded"] == 1000
     assert stmt2["current_outstanding_balance"] == 2000
+
+
+def test_delete_member_service_success(session: Session):
+    """MemberService.delete_member deletes an unencumbered member successfully."""
+    now = datetime(2026, 10, 15, 10, 0, 0, tzinfo=UTC)
+    member = Member(name="Del Member", phone="+91-99999-11111", join_date=now)
+    session.add(member)
+    session.flush()
+
+    MemberService.delete_member(session, member.id)
+    session.flush()
+
+    with pytest.raises(EntityNotFoundError):
+        MemberService.get_member(session, member.id)
+
+
+def test_delete_member_service_nonexistent(session: Session):
+    """MemberService.delete_member raises EntityNotFoundError for missing member."""
+    with pytest.raises(EntityNotFoundError):
+        MemberService.delete_member(session, 999999)
+
+
+def test_delete_member_service_with_loans_rejected(session: Session):
+    """MemberService.delete_member raises EntityHasAssociatedRecordsError when member has loans."""
+    now = datetime(2026, 10, 15, 10, 0, 0, tzinfo=UTC)
+    member = Member(name="Loan Member", phone="+91-99999-11112", join_date=now)
+    item = Item(name="Drill", category="Tools", replacement_value=5000)
+    session.add_all([member, item])
+    session.flush()
+
+    loan = Loan(member_id=member.id, item_id=item.id, reserved_at=now, status=LoanStatus.RESERVED)
+    session.add(loan)
+    session.flush()
+
+    with pytest.raises(EntityHasAssociatedRecordsError):
+        MemberService.delete_member(session, member.id)
+
+
+def test_delete_member_service_with_payments_rejected(session: Session):
+    """MemberService.delete_member raises EntityHasAssociatedRecordsError when payments exist."""
+    now = datetime(2026, 10, 15, 10, 0, 0, tzinfo=UTC)
+    member = Member(name="Pay Member", phone="+91-99999-11113", join_date=now)
+    session.add(member)
+    session.flush()
+
+    payment = Payment(member_id=member.id, amount=500, paid_at=now)
+    session.add(payment)
+    session.flush()
+
+    with pytest.raises(EntityHasAssociatedRecordsError):
+        MemberService.delete_member(session, member.id)
+
+
+def test_delete_member_service_with_balance_rejected(session: Session):
+    """MemberService.delete_member raises EntityHasAssociatedRecordsError on positive balance."""
+    now = datetime(2026, 10, 15, 10, 0, 0, tzinfo=UTC)
+    member = Member(
+        name="Balance Member",
+        phone="+91-99999-11114",
+        join_date=now,
+        running_fee_balance=1000,
+    )
+    session.add(member)
+    session.flush()
+
+    with pytest.raises(EntityHasAssociatedRecordsError):
+        MemberService.delete_member(session, member.id)
