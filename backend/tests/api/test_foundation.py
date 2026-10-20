@@ -236,18 +236,22 @@ def test_test_clock_disabled_by_default_rejects_override():
 
     assert response.status_code == 403
     data = response.json()
-    assert data["code"] == "FORBIDDEN"
+    assert data["code"] == "TEST_CLOCK_DISABLED"
     assert "disabled" in data["detail"].lower()
 
 
 def test_test_clock_cannot_be_activated_in_production():
-    # Hard guard: Even if ALLOW_TEST_CLOCK=true in environment, APP_ENV=production blocks it
-    prod_settings = Settings.from_env(
-        {
-            "APP_ENV": "production",
-            "ALLOW_TEST_CLOCK": "true",
-        }
-    )
+    # Fail fast: In production, ALLOW_TEST_CLOCK=true without a key raises ValueError
+    with pytest.raises(ValueError, match="TEST_CLOCK_KEY"):
+        Settings.from_env(
+            {
+                "APP_ENV": "production",
+                "ALLOW_TEST_CLOCK": "true",
+            }
+        )
+
+    # In production without ALLOW_TEST_CLOCK, starts with clock disabled
+    prod_settings = Settings.from_env({"APP_ENV": "production"})
     assert prod_settings.allow_test_clock is False
 
     # Also test via client
@@ -283,20 +287,20 @@ def test_test_clock_accepts_valid_utc_and_offset_timestamps():
 def test_test_clock_rejects_naive_and_malformed_timestamps():
     client = make_test_client(app_env="test", allow_test_clock=True)
 
-    # Naive timestamp (no tz / Z)
+    # Naive timestamp (no tz / Z) -> 422 INVALID_TEST_CLOCK
     res_naive = client.get(
         "/_test_foundation/clock",
         headers={"X-Test-Clock": "2026-10-25T14:00:00"},
     )
-    assert res_naive.status_code == 400
+    assert res_naive.status_code == 422
     assert "timezone-aware" in res_naive.json()["detail"].lower()
 
-    # Malformed string
+    # Malformed string -> 422 INVALID_TEST_CLOCK
     res_bad = client.get(
         "/_test_foundation/clock",
         headers={"X-Test-Clock": "not-a-valid-timestamp"},
     )
-    assert res_bad.status_code == 400
+    assert res_bad.status_code == 422
     assert "invalid" in res_bad.json()["detail"].lower()
 
 
@@ -307,15 +311,15 @@ def test_test_clock_enforces_key_authentication_when_configured():
         test_clock_key="super_secret_reviewer_key",
     )
 
-    # Missing key -> 401 Unauthorized
+    # Missing key -> 403 Forbidden with TEST_CLOCK_UNAUTHORIZED
     res_missing = client.get(
         "/_test_foundation/clock",
         headers={"X-Test-Clock": "2026-10-25T14:00:00Z"},
     )
-    assert res_missing.status_code == 401
-    assert "unauthorized" in res_missing.json()["error"].lower()
+    assert res_missing.status_code == 403
+    assert res_missing.json()["code"] == "TEST_CLOCK_UNAUTHORIZED"
 
-    # Wrong key -> 401 Unauthorized
+    # Wrong key -> 403 Forbidden with TEST_CLOCK_UNAUTHORIZED
     res_wrong = client.get(
         "/_test_foundation/clock",
         headers={
@@ -323,7 +327,8 @@ def test_test_clock_enforces_key_authentication_when_configured():
             "X-Test-Clock-Key": "incorrect_key",
         },
     )
-    assert res_wrong.status_code == 401
+    assert res_wrong.status_code == 403
+    assert res_wrong.json()["code"] == "TEST_CLOCK_UNAUTHORIZED"
 
     # Correct key -> 200 OK
     res_ok = client.get(

@@ -10,6 +10,12 @@ from app.api.errors import build_error_response
 from app.core.clock import get_request_clock
 from app.core.database import get_db
 from app.models.loan import LoanStatus
+from app.schemas.common import (
+    OptionalIdQuery,
+    PaginationLimit,
+    PaginationOffset,
+    PositiveId,
+)
 from app.schemas.loan import LoanReserveRequest, LoanResponse
 from app.services.loan_service import LoanService
 
@@ -33,7 +39,7 @@ def reserve_loan(
 
 @router.post("/{loan_id}/checkout", response_model=LoanResponse)
 def checkout_loan(
-    loan_id: int,
+    loan_id: PositiveId,
     db: Annotated[Session, Depends(get_db)],
     now: Annotated[datetime, Depends(get_request_clock)],
     request: Request,
@@ -61,7 +67,7 @@ def checkout_loan(
 
 @router.post("/{loan_id}/return", response_model=LoanResponse)
 def return_loan(
-    loan_id: int,
+    loan_id: PositiveId,
     db: Annotated[Session, Depends(get_db)],
     now: Annotated[datetime, Depends(get_request_clock)],
 ) -> LoanResponse:
@@ -72,7 +78,7 @@ def return_loan(
 
 @router.post("/{loan_id}/cancel", response_model=LoanResponse)
 def cancel_loan(
-    loan_id: int,
+    loan_id: PositiveId,
     db: Annotated[Session, Depends(get_db)],
     now: Annotated[datetime, Depends(get_request_clock)],
 ) -> LoanResponse:
@@ -84,10 +90,10 @@ def cancel_loan(
 def list_overdue_loans(
     db: Annotated[Session, Depends(get_db)],
     now: Annotated[datetime, Depends(get_request_clock)],
-    member_id: Annotated[int | None, Query(description="Filter by member ID")] = None,
-    item_id: Annotated[int | None, Query(description="Filter by item ID")] = None,
-    limit: Annotated[int, Query(ge=1, le=500, description="Max records to return")] = 100,
-    offset: Annotated[int, Query(ge=0, description="Offset for pagination")] = 0,
+    member_id: OptionalIdQuery = None,
+    item_id: OptionalIdQuery = None,
+    limit: PaginationLimit = 100,
+    offset: PaginationOffset = 0,
 ) -> list[LoanResponse]:
     """List currently overdue loans dynamically based on due_at and current clock."""
     return LoanService.get_overdue_loans(
@@ -102,7 +108,7 @@ def list_overdue_loans(
 
 @router.get("/{loan_id}", response_model=LoanResponse)
 def get_loan(
-    loan_id: int,
+    loan_id: PositiveId,
     db: Annotated[Session, Depends(get_db)],
 ) -> LoanResponse:
     """Retrieve loan details by loan ID."""
@@ -112,14 +118,14 @@ def get_loan(
 @router.get("", response_model=list[LoanResponse])
 def list_loans(
     db: Annotated[Session, Depends(get_db)],
-    member_id: Annotated[int | None, Query(description="Filter by member ID")] = None,
-    item_id: Annotated[int | None, Query(description="Filter by item ID")] = None,
+    member_id: OptionalIdQuery = None,
+    item_id: OptionalIdQuery = None,
     status_filter: Annotated[
         LoanStatus | None,
         Query(alias="status", description="Filter by loan status"),
     ] = None,
-    limit: Annotated[int, Query(ge=1, le=500, description="Max records to return")] = 100,
-    offset: Annotated[int, Query(ge=0, description="Offset for pagination")] = 0,
+    limit: PaginationLimit = 100,
+    offset: PaginationOffset = 0,
 ) -> list[LoanResponse]:
     """List loans with optional filters and bounded pagination."""
     return LoanService.list_loans(

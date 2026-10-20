@@ -23,6 +23,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_origins=list(settings.cors_origins),
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["*"],
+        expose_headers=["X-Request-ID", "X-Clock-Mode"],
     )
 
     # Centralized exception handlers for domain, DB integrity, validation, and unexpected errors

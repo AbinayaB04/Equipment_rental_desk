@@ -1,4 +1,4 @@
-"""Request correlation and structured request logging middleware."""
+"""Request correlation, test clock resolution, and structured request logging middleware."""
 
 import logging
 import re
@@ -8,6 +8,10 @@ import uuid
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
+
+from app.api.errors import build_error_response
+from app.core.clock import TestClockError, validate_and_resolve_test_clock
+from app.core.config import Settings
 
 logger = logging.getLogger("app.api.access")
 
@@ -28,11 +32,39 @@ def get_or_generate_request_id(raw_header: str | None) -> str:
 
 
 class RequestIdAndLoggingMiddleware(BaseHTTPMiddleware):
-    """Middleware attaching request IDs and logging structured request metrics."""
+    """Middleware attaching request IDs, resolving test clock, and logging structured metrics."""
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         request_id = get_or_generate_request_id(request.headers.get("X-Request-ID"))
         request.state.request_id = request_id
+
+        # 1. Resolve and validate test clock header in request scope
+        settings: Settings = getattr(request.app.state, "settings", None) or Settings.from_env()
+        try:
+            test_clock_dt = validate_and_resolve_test_clock(request, settings)
+            if test_clock_dt is not None:
+                request.state.is_test_clock = True
+                request.state.test_clock = test_clock_dt
+                logger.warning(
+                    "Simulated test clock in effect for request: %s",
+                    test_clock_dt.isoformat(),
+                    extra={
+                        "request_id": request_id,
+                        "simulated_time": test_clock_dt.isoformat(),
+                    },
+                )
+            else:
+                request.state.is_test_clock = False
+                request.state.test_clock = None
+        except TestClockError as exc:
+            # Short-circuit immediately before routing, database access, or service execution
+            return build_error_response(
+                status_code=exc.status_code,
+                error=exc.error,
+                detail=exc.detail,
+                code=exc.code,
+                request_id=request_id,
+            )
 
         start_time = time.perf_counter()
         client_ip = request.client.host if request.client else "unknown"
@@ -63,6 +95,8 @@ class RequestIdAndLoggingMiddleware(BaseHTTPMiddleware):
             raise
 
         elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
+        if getattr(request.state, "is_test_clock", False):
+            response.headers["X-Clock-Mode"] = "test"
         response.headers["X-Request-ID"] = request_id
         logger.info(
             "request_completed",

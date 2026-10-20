@@ -20,7 +20,7 @@ def test_health_returns_ok():
     response = make_client().get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {"status": "ok", "test_clock_enabled": False}
 
 
 def test_health_allows_a_configured_origin():

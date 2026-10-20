@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.clock import get_request_clock
 from app.core.database import get_db
 from app.models.item import ItemStatus
+from app.schemas.common import PaginationLimit, PaginationOffset, PositiveId
 from app.schemas.item import ItemCreate, ItemResponse, ItemUpdate
 from app.services.item_service import ItemService
 
@@ -23,8 +24,8 @@ def list_items(
         ItemStatus | None,
         Query(alias="status", description="Filter by item status"),
     ] = None,
-    limit: Annotated[int, Query(ge=1, le=500, description="Max records to return")] = 100,
-    offset: Annotated[int, Query(ge=0, description="Offset for pagination")] = 0,
+    limit: PaginationLimit = 100,
+    offset: PaginationOffset = 0,
 ) -> list[ItemResponse]:
     """List items with optional category/status filters and pagination."""
     return ItemService.list_items(
@@ -53,7 +54,7 @@ def create_item(
 
 @router.get("/{item_id}", response_model=ItemResponse)
 def get_item(
-    item_id: int,
+    item_id: PositiveId,
     db: Annotated[Session, Depends(get_db)],
 ) -> ItemResponse:
     """Retrieve a single equipment item by ID."""
@@ -62,7 +63,7 @@ def get_item(
 
 @router.patch("/{item_id}", response_model=ItemResponse)
 def update_item(
-    item_id: int,
+    item_id: PositiveId,
     payload: ItemUpdate,
     db: Annotated[Session, Depends(get_db)],
 ) -> ItemResponse:
@@ -79,7 +80,7 @@ def update_item(
 
 @router.post("/{item_id}/maintenance", response_model=ItemResponse)
 def set_maintenance(
-    item_id: int,
+    item_id: PositiveId,
     db: Annotated[Session, Depends(get_db)],
     now: Annotated[datetime, Depends(get_request_clock)],
 ) -> ItemResponse:
@@ -89,7 +90,7 @@ def set_maintenance(
 
 @router.post("/{item_id}/restore-maintenance", response_model=ItemResponse)
 def restore_maintenance(
-    item_id: int,
+    item_id: PositiveId,
     db: Annotated[Session, Depends(get_db)],
     now: Annotated[datetime, Depends(get_request_clock)],
 ) -> ItemResponse:
@@ -99,7 +100,7 @@ def restore_maintenance(
 
 @router.post("/{item_id}/restore", response_model=ItemResponse, include_in_schema=False)
 def restore_maintenance_alias(
-    item_id: int,
+    item_id: PositiveId,
     db: Annotated[Session, Depends(get_db)],
     now: Annotated[datetime, Depends(get_request_clock)],
 ) -> ItemResponse:

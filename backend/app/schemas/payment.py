@@ -2,22 +2,18 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field
+
+from app.schemas.common import NoteText, PositivePaise
 
 
 class PaymentCreateRequest(BaseModel):
-    amount_paise: int = Field(..., gt=0, description="Payment amount in paise (must be positive)")
-    note: str | None = Field(default=None, max_length=255, description="Optional payment note")
+    amount_paise: PositivePaise = Field(
+        ..., description="Payment amount in paise (must be positive, <= 2147483647)"
+    )
+    note: NoteText = Field(default=None, max_length=255, description="Optional payment note")
 
     model_config = ConfigDict(extra="forbid")
-
-    @field_validator("note", mode="after")
-    @classmethod
-    def clean_note(cls, v: str | None) -> str | None:
-        if v is None:
-            return None
-        cleaned = v.strip()
-        return cleaned if cleaned else None
 
 
 class PaymentResponse(BaseModel):

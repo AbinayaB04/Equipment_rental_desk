@@ -6,10 +6,11 @@ from http import HTTPStatus
 from fastapi import FastAPI, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DataError, IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
 
+from app.core.clock import TestClockError
 from app.domain.exceptions import (
     ActiveLoanLimitExceededError,
     DomainError,
@@ -63,6 +64,7 @@ def build_error_response(
     detail: str,
     code: str,
     request_id: str | None = None,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     """Build a structured JSON error response envelope."""
     content = {
@@ -71,8 +73,10 @@ def build_error_response(
         "code": code,
         "request_id": request_id,
     }
-    headers = {"X-Request-ID": request_id} if request_id else None
-    return JSONResponse(status_code=status_code, content=content, headers=headers)
+    resp_headers = {"X-Request-ID": request_id} if request_id else {}
+    if headers:
+        resp_headers.update(headers)
+    return JSONResponse(status_code=status_code, content=content, headers=resp_headers or None)
 
 
 _build_error_response = build_error_response
@@ -179,6 +183,42 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
     )
 
 
+async def data_error_handler(request: Request, exc: DataError) -> JSONResponse:
+    request_id = _get_request_id(request)
+    logger.warning(
+        "Database data error on %s %s: %s",
+        request.method,
+        request.url.path,
+        exc.__class__.__name__,
+        extra={"request_id": request_id},
+    )
+    return _build_error_response(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        error="Unprocessable Entity",
+        detail="A value is out of the allowed range.",
+        code="VALIDATION_ERROR",
+        request_id=request_id,
+    )
+
+
+async def overflow_error_handler(request: Request, exc: OverflowError) -> JSONResponse:
+    request_id = _get_request_id(request)
+    logger.warning(
+        "Overflow error on %s %s: %s",
+        request.method,
+        request.url.path,
+        exc.__class__.__name__,
+        extra={"request_id": request_id},
+    )
+    return _build_error_response(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        error="Bad Request",
+        detail="A numeric or date value exceeded the supported range.",
+        code="BAD_REQUEST",
+        request_id=request_id,
+    )
+
+
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     request_id = _get_request_id(request)
     logger.exception(
@@ -197,10 +237,24 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     )
 
 
+async def test_clock_error_handler(request: Request, exc: TestClockError) -> JSONResponse:
+    request_id = _get_request_id(request)
+    return _build_error_response(
+        status_code=exc.status_code,
+        error=exc.error,
+        detail=exc.detail,
+        code=exc.code,
+        request_id=request_id,
+    )
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Register all centralized error handlers on the FastAPI application."""
+    app.add_exception_handler(TestClockError, test_clock_error_handler)
     app.add_exception_handler(DomainError, domain_error_handler)
     app.add_exception_handler(IntegrityError, integrity_error_handler)
+    app.add_exception_handler(DataError, data_error_handler)
+    app.add_exception_handler(OverflowError, overflow_error_handler)
     app.add_exception_handler(RequestValidationError, validation_error_handler)
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)

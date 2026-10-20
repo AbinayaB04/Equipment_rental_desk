@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.clock import get_request_clock
 from app.core.database import get_db
 from app.models.member import MemberStatus
+from app.schemas.common import PaginationLimit, PaginationOffset, PositiveId
 from app.schemas.member import (
     MemberCreate,
     MemberResponse,
@@ -28,8 +29,8 @@ def list_members(
         MemberStatus | None,
         Query(alias="status", description="Filter by member status"),
     ] = None,
-    limit: Annotated[int, Query(ge=1, le=500, description="Max records to return")] = 100,
-    offset: Annotated[int, Query(ge=0, description="Offset for pagination")] = 0,
+    limit: PaginationLimit = 100,
+    offset: PaginationOffset = 0,
 ) -> list[MemberResponse]:
     """List members with optional status filter and pagination."""
     return MemberService.list_members(db, status=status_filter, limit=limit, offset=offset)
@@ -47,7 +48,7 @@ def create_member(
 
 @router.get("/{member_id}", response_model=MemberResponse)
 def get_member(
-    member_id: int,
+    member_id: PositiveId,
     db: Annotated[Session, Depends(get_db)],
 ) -> MemberResponse:
     """Retrieve a single member by ID."""
@@ -56,7 +57,7 @@ def get_member(
 
 @router.patch("/{member_id}", response_model=MemberResponse)
 def update_member(
-    member_id: int,
+    member_id: PositiveId,
     payload: MemberUpdate,
     db: Annotated[Session, Depends(get_db)],
 ) -> MemberResponse:
@@ -71,7 +72,7 @@ def update_member(
 
 @router.post("/{member_id}/suspend", response_model=MemberResponse)
 def suspend_member(
-    member_id: int,
+    member_id: PositiveId,
     db: Annotated[Session, Depends(get_db)],
 ) -> MemberResponse:
     """Suspend a member, blocking borrowing operations."""
@@ -80,7 +81,7 @@ def suspend_member(
 
 @router.post("/{member_id}/reinstate", response_model=MemberResponse)
 def reinstate_member(
-    member_id: int,
+    member_id: PositiveId,
     db: Annotated[Session, Depends(get_db)],
 ) -> MemberResponse:
     """Reinstate a suspended member to active status."""
@@ -89,7 +90,7 @@ def reinstate_member(
 
 @router.post("/{member_id}/reactivate", response_model=MemberResponse, include_in_schema=False)
 def reactivate_member(
-    member_id: int,
+    member_id: PositiveId,
     db: Annotated[Session, Depends(get_db)],
 ) -> MemberResponse:
     """Alias for reinstate_member."""
@@ -102,7 +103,7 @@ def reactivate_member(
     status_code=status.HTTP_201_CREATED,
 )
 def record_payment(
-    member_id: int,
+    member_id: PositiveId,
     payload: PaymentCreateRequest,
     db: Annotated[Session, Depends(get_db)],
     now: Annotated[datetime, Depends(get_request_clock)],
@@ -122,7 +123,7 @@ def record_payment(
     response_model=MemberStatementResponse,
 )
 def get_member_statement(
-    member_id: int,
+    member_id: PositiveId,
     db: Annotated[Session, Depends(get_db)],
 ) -> Any:
     """Retrieve an itemized statement of loans, payments, and fees for a member."""
