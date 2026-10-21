@@ -2661,105 +2661,204 @@ Explain your decisions in simple language so I can understand and defend the imp
 <details>
 <summary>Full prompt text (Entry 40)</summary>
 
-M4 — STEP 1b: BACKEND CONTRACT CAPTURE. READ-ONLY.
-
-Scope guard (strict):
-- Do NOT create, edit or delete any file in the repository. Do NOT edit PROMPTS.md
-  (the user maintains it manually).
-- Do NOT run git add, commit, push, pull, reset, checkout, clean or stash.
-- Do NOT install dependencies or modify backend/frontend code.
-- The only writes allowed: local development database rows (restored in step 14) and
-  temp files under $env:TEMP.
-- Paste RAW command output, not summaries. If a command fails, paste the error and
-  continue. Never say a check passed unless you ran it.
-- Use curl.exe -s -i for HTTP calls so status line, headers and body are all visible
-  (works in Windows PowerShell 5.1 and 7). For JSON bodies, write them to a temp file
-  and use --data-binary "@file" with -H "Content-Type: application/json".
-
-Project: Equipment Rental Desk (KJBN Labs take-home, Problem 1). Frontend will be
-React + TypeScript + Vite. I need the REAL API contract before designing types.
-Do not assume any field, enum casing, path or error code exists: verify each.
-
-A. Repo facts
-1. git status -sb ; git log --oneline -8 ; git fetch origin ;
-   git rev-parse HEAD origin/main ; git log origin/main..HEAD --oneline
-2. git diff PROMPTS.md   (the Entry 39 change from the previous step)
-3. git show --stat --format="%h %ad %s" --date=short 4e69879  (files changed count)
-
-B. Start the stack locally (development only)
-4. docker compose up -d db (say whether it was already running). Activate the backend
-   venv. Set APP_ENV=development, DATABASE_URL (see README), CORS_ORIGINS to
-   http://localhost:5173,http://localhost:8081, ALLOW_TEST_CLOCK=true and
-   TEST_CLOCK_KEY=local-dev-clock-key-123456 (local throwaway value).
-   Run the existing migrate-and-seed script with --reset (this deletes LOCAL dev data
-   only; say that you did it).
-5. Start the API on port 8000 as a background process (Start-Process -PassThru), poll
-   /health until it answers, and stop that process at the end.
-
-C. OpenAPI and routes
-6. From /openapi.json print: every path with its methods; every schema in
-   components.schemas with its property names, types, required list and any enum values
-   (show exact enum casing, e.g. "available" vs "AVAILABLE").
-7. State whether DELETE exists for /members/{id} and /items/{id}. State whether the
-   /api/* aliases are real routes or redirects, and which base path the UI should use.
-
-D. Real responses (seeded data). For each, print status line + body (pretty JSON; for
-   lists, the first 2 elements and the total length):
-8. GET /items ; GET /items?status=<each status value from the enum>, including overdue
-   and maintenance if supported ; GET /items/{id} for: an available item, a reserved
-   item, a checked-out item, an overdue item, and the item that is under maintenance
-   with a checked-out loan.
-   GET /members ; GET /members/{id} ; GET /members/{id}/statement for the members with
-   a balance of exactly 10000 paise, over 10000 paise, and a suspended member.
-   GET /loans ; GET /loans?status=<each status> ; GET /loans/overdue ; GET /loans/{id}.
-9. Writes (local data only): create a member and an item; PATCH each; POST suspend and
-   reinstate; POST a payment; reserve -> checkout -> return a loan; reserve -> cancel a
-   loan; put an item under maintenance and restore it.
-
-E. Error contract (print status line + raw body for each)
-10. GET /items/999999 ; GET /items/abc ; GET /items?limit=0 ; GET /items?status=bogus ;
-    POST /members with a 9-digit phone ; POST /members with malformed JSON ;
-    POST /members/{id}/payments with an amount above the balance, with 0, and with 10.5 ;
-    reserve for a suspended member ; reserve for the member over 10000 paise ; reserve
-    for a member with 3 active loans ; checkout of the stale (expired) reservation ;
-    return of a loan that is not checked out ; checkout of the same loan twice ; restore
-    of an item that has a checked-out loan.
-    Then state: the exact JSON shape of an error, which fields are always present,
-    which HTTP status each business-rule error uses, and the full set of "code" values.
-
-F. CORS and test clock
-11. Preflight: curl.exe -s -i -X OPTIONS http://localhost:8000/loans/reserve with
-    Origin: http://localhost:5173, Access-Control-Request-Method: POST and
-    Access-Control-Request-Headers: content-type,x-test-clock,x-test-clock-key.
-    Repeat for PATCH /members/1. Paste the Access-Control-Allow-* headers. Say whether
-    the browser would be allowed to send the test-clock headers.
-12. GET /loans/overdue (a) with no clock header, (b) with X-Test-Clock set to 30 days
-    ahead and the correct key, (c) with the wrong key, (d) with a naive timestamp.
-    Paste status, body and any X-Clock-* response headers. Does /health report whether
-    the test clock is enabled?
-
-G. What the UI needs, present or missing
-13. A table with columns: UI need | present? | exact field or endpoint | notes. Rows:
-    - item effective status incl. Overdue and Maintenance
-    - the open loan (id, member) on the item response
-    - the list of actions valid for an item in its current state
-    - member name and item name on each loan (or is N+1 fetching needed?)
-    - days overdue or overdue flag on a loan
-    - fee that would be charged if returned now (informational)
-    - member balance on MemberResponse and on the statement
-    - member "why can't borrow" reasons (is there an eligibility endpoint?)
-    - count of active loans for a member
-    - text search (q) on /items and /members
-    - pagination envelope (total count?) and default/maximum limit
-    - timestamps: are they UTC with a Z or offset?
-    - money: field names and units (paise?)
-14. Restore the local database: run the seed script with --reset again. Stop the API
-    process. Run pytest -q from backend/ and paste the summary lines; state which
-    database it used. Do not claim any number of tests without running them.
-
-Finish with a numbered list of discrepancies between the Step 1 plan you wrote
-(routes, field names, error codes, statuses, the eligibility approach, the "201 passing
-tests on PostgreSQL and SQLite" claim) and what you actually observed. Do not fix
+M4 — STEP 1b: BACKEND CONTRACT CAPTURE. READ-ONLY.
+
+
+
+Scope guard (strict):
+
+- Do NOT create, edit or delete any file in the repository. Do NOT edit PROMPTS.md
+
+  (the user maintains it manually).
+
+- Do NOT run git add, commit, push, pull, reset, checkout, clean or stash.
+
+- Do NOT install dependencies or modify backend/frontend code.
+
+- The only writes allowed: local development database rows (restored in step 14) and
+
+  temp files under $env:TEMP.
+
+- Paste RAW command output, not summaries. If a command fails, paste the error and
+
+  continue. Never say a check passed unless you ran it.
+
+- Use curl.exe -s -i for HTTP calls so status line, headers and body are all visible
+
+  (works in Windows PowerShell 5.1 and 7). For JSON bodies, write them to a temp file
+
+  and use --data-binary "@file" with -H "Content-Type: application/json".
+
+
+
+Project: Equipment Rental Desk (KJBN Labs take-home, Problem 1). Frontend will be
+
+React + TypeScript + Vite. I need the REAL API contract before designing types.
+
+Do not assume any field, enum casing, path or error code exists: verify each.
+
+
+
+A. Repo facts
+
+1. git status -sb ; git log --oneline -8 ; git fetch origin ;
+
+   git rev-parse HEAD origin/main ; git log origin/main..HEAD --oneline
+
+2. git diff PROMPTS.md   (the Entry 39 change from the previous step)
+
+3. git show --stat --format="%h %ad %s" --date=short 4e69879  (files changed count)
+
+
+
+B. Start the stack locally (development only)
+
+4. docker compose up -d db (say whether it was already running). Activate the backend
+
+   venv. Set APP_ENV=development, DATABASE_URL (see README), CORS_ORIGINS to
+
+   http://localhost:5173,http://localhost:8081, ALLOW_TEST_CLOCK=true and
+
+   TEST_CLOCK_KEY=local-dev-clock-key-123456 (local throwaway value).
+
+   Run the existing migrate-and-seed script with --reset (this deletes LOCAL dev data
+
+   only; say that you did it).
+
+5. Start the API on port 8000 as a background process (Start-Process -PassThru), poll
+
+   /health until it answers, and stop that process at the end.
+
+
+
+C. OpenAPI and routes
+
+6. From /openapi.json print: every path with its methods; every schema in
+
+   components.schemas with its property names, types, required list and any enum values
+
+   (show exact enum casing, e.g. "available" vs "AVAILABLE").
+
+7. State whether DELETE exists for /members/{id} and /items/{id}. State whether the
+
+   /api/* aliases are real routes or redirects, and which base path the UI should use.
+
+
+
+D. Real responses (seeded data). For each, print status line + body (pretty JSON; for
+
+   lists, the first 2 elements and the total length):
+
+8. GET /items ; GET /items?status=<each status value from the enum>, including overdue
+
+   and maintenance if supported ; GET /items/{id} for: an available item, a reserved
+
+   item, a checked-out item, an overdue item, and the item that is under maintenance
+
+   with a checked-out loan.
+
+   GET /members ; GET /members/{id} ; GET /members/{id}/statement for the members with
+
+   a balance of exactly 10000 paise, over 10000 paise, and a suspended member.
+
+   GET /loans ; GET /loans?status=<each status> ; GET /loans/overdue ; GET /loans/{id}.
+
+9. Writes (local data only): create a member and an item; PATCH each; POST suspend and
+
+   reinstate; POST a payment; reserve -> checkout -> return a loan; reserve -> cancel a
+
+   loan; put an item under maintenance and restore it.
+
+
+
+E. Error contract (print status line + raw body for each)
+
+10. GET /items/999999 ; GET /items/abc ; GET /items?limit=0 ; GET /items?status=bogus ;
+
+    POST /members with a 9-digit phone ; POST /members with malformed JSON ;
+
+    POST /members/{id}/payments with an amount above the balance, with 0, and with 10.5 ;
+
+    reserve for a suspended member ; reserve for the member over 10000 paise ; reserve
+
+    for a member with 3 active loans ; checkout of the stale (expired) reservation ;
+
+    return of a loan that is not checked out ; checkout of the same loan twice ; restore
+
+    of an item that has a checked-out loan.
+
+    Then state: the exact JSON shape of an error, which fields are always present,
+
+    which HTTP status each business-rule error uses, and the full set of "code" values.
+
+
+
+F. CORS and test clock
+
+11. Preflight: curl.exe -s -i -X OPTIONS http://localhost:8000/loans/reserve with
+
+    Origin: http://localhost:5173, Access-Control-Request-Method: POST and
+
+    Access-Control-Request-Headers: content-type,x-test-clock,x-test-clock-key.
+
+    Repeat for PATCH /members/1. Paste the Access-Control-Allow-* headers. Say whether
+
+    the browser would be allowed to send the test-clock headers.
+
+12. GET /loans/overdue (a) with no clock header, (b) with X-Test-Clock set to 30 days
+
+    ahead and the correct key, (c) with the wrong key, (d) with a naive timestamp.
+
+    Paste status, body and any X-Clock-* response headers. Does /health report whether
+
+    the test clock is enabled?
+
+
+
+G. What the UI needs, present or missing
+
+13. A table with columns: UI need | present? | exact field or endpoint | notes. Rows:
+
+    - item effective status incl. Overdue and Maintenance
+
+    - the open loan (id, member) on the item response
+
+    - the list of actions valid for an item in its current state
+
+    - member name and item name on each loan (or is N+1 fetching needed?)
+
+    - days overdue or overdue flag on a loan
+
+    - fee that would be charged if returned now (informational)
+
+    - member balance on MemberResponse and on the statement
+
+    - member "why can't borrow" reasons (is there an eligibility endpoint?)
+
+    - count of active loans for a member
+
+    - text search (q) on /items and /members
+
+    - pagination envelope (total count?) and default/maximum limit
+
+    - timestamps: are they UTC with a Z or offset?
+
+    - money: field names and units (paise?)
+
+14. Restore the local database: run the seed script with --reset again. Stop the API
+
+    process. Run pytest -q from backend/ and paste the summary lines; state which
+
+    database it used. Do not claim any number of tests without running them.
+
+
+
+Finish with a numbered list of discrepancies between the Step 1 plan you wrote
+
+(routes, field names, error codes, statuses, the eligibility approach, the "201 passing
+
+tests on PostgreSQL and SQLite" claim) and what you actually observed. Do not fix
+
 anything and do not start M4 Step 2.
 
 </details>
@@ -2775,126 +2874,246 @@ anything and do not start M4 Step 2.
 <details>
 <summary>Full prompt text (Entry 41)</summary>
 
-M4 — STEP 1c: ASSIGNMENT EDGE-CASE PROBE. READ-ONLY (no repository changes).
-
-Scope guard:
-- Do NOT create, edit or delete any repository file (including PROMPTS.md). Do NOT run
-  git add, commit, push, pull, reset, checkout, clean or stash. Do NOT install packages.
-- Allowed writes: local development database rows (reseeded at the end) and files under
-  $env:TEMP.
-- Report only what you actually ran. If a probe cannot run, say why. Never mark PASS from
-  reading code alone.
-- Setup (same as Step 1b): APP_ENV=development, local DATABASE_URL, CORS_ORIGINS as in the
-  README, ALLOW_TEST_CLOCK=true, TEST_CLOCK_KEY=local-dev-clock-key-123456. Start from a
-  clean database (alembic downgrade base; alembic upgrade head; python -m scripts.seed).
-  Start the API on port 8000, stop it at the end, and reseed again at the end.
-- Write all probes as ONE standard-library Python script in $env:TEMP (urllib, json,
-  threading, datetime). Print one compact line per passing probe. Print the full
-  request, status and body only for probes that FAIL or surprise you.
-- Helper: call(method, path, body=None, clock=None) sends X-Test-Clock (ISO-8601 with Z,
-  microseconds allowed) plus X-Test-Clock-Key when clock is given, and returns
-  (status, parsed_json_or_text). Compute every clock value from timestamps returned by the
-  API (reserved_at, due_at, checked_out_at). Never use the script's own "now".
-
-PROBES (assignment rule -> expected):
-
-Rule 2, reservation expiry on READ and WRITE
- P1. Reserve a fresh item X for member A; T = reserved_at. With clocks T+47h59m, T+48h00m
-     and T+48h01m call GET /items/X, GET /items?status=RESERVED and
-     GET /items?status=AVAILABLE.
-     Expected: RESERVED at 47h59m; AVAILABLE at 48h00m and 48h01m.
- P2. Seeded stale reservation (loan 2, item 3), no clock header: GET /items/3,
-     GET /items?status=RESERVED, GET /items?status=AVAILABLE, GET /loans/2.
-     Expected: item 3 is AVAILABLE.
- P3. For new reservations: checkout at T+47h59m succeeds; checkout at T+48h01m is
-     rejected; at T+48h01m a DIFFERENT member can reserve the same item; at T+47h59m a
-     different member cannot.
- P4. After the reserve-over-expired in P3, GET /loans?item_id=X. What status does the
-     expired loan have now? Can anyone tell it expired rather than was cancelled?
-
-Rule 1, item states
- P5. GET /items/7 (its loan is in /loans/overdue). Expected: Overdue.
- P6. POST /items/{id}/maintenance on (a) an AVAILABLE item, (b) a RESERVED item,
-     (c) a CHECKED_OUT item. After each, GET /loans/{id} and GET /items/{id}. For (c) also:
-     can the loan be returned, what does the item show after the return, can it be
-     restored before and after the return?
-     Expected (README decisions): (b) the reservation is cancelled; (c) the loan stays
-     open, return is allowed, the item stays under maintenance until restored.
- P7. Invalid transitions: reserve an item under maintenance; reserve a CHECKED_OUT item;
-     restore an AVAILABLE item; maintenance on an item already under maintenance.
-     Expected: a clear 4xx, never 5xx.
-
-Rule 3, late fee (return at clock times after due_at; use items worth at least 200000 paise)
- P8. Return at due+0s, +1s, +23h59m59s, +24h, +24h1s, +48h1s, +19d1s, +20d1s.
-     Expected fee_charged in paise: 0, 1000, 1000, 1000, 2000, 3000, 20000, 20000.
- P9. Value cap: create an item with replacement_value 15000, return 30 days late
-     (expected fee 15000). Create one with replacement_value 500, return 1 day late
-     (expected 500).
- P10. Return the same loan twice. Expected: the second is a clear 409; the fee is charged
-      once; the member balance rises once.
-
-Rules 4, 5, 7, eligibility
- P11. Member 5 (balance exactly 10000): reserve. Expected: success. Note that 10001
-      cannot be constructed from fees; say so.
- P12. Member 7 has loan 6 due at D. Reserve for member 7 with clock D+14d (expected
-      allowed) and D+14d+1s (expected blocked). Use a free item each time.
- P13. Active limit: a member with 2 active loans reserves a 3rd (ok) and a 4th (blocked);
-      after returning one, a reserve works again; an expired reservation does not count
-      (use a clock past 48h).
- P14. Suspended member: reserve is blocked. Can the same member still return a
-      checked-out item, cancel a reservation and pay fees? Test each.
-
-Payments
- P15. Pay exactly the balance (ok, balance 0), then pay 1 (error); pay balance+1 on another
-      member (error); payloads -1, 0, "10" (string), true, null, 99999999999999999999.
-      Two simultaneous payments of 3000 against a balance of 5000: exactly one succeeds.
-
-Concurrency (real HTTP, threads released together with threading.Barrier, 8 attempts)
- P16. 8 simultaneous POST /loans/{id}/checkout on one reservation: exactly one 200, the
-      rest 409; one checked_out_at.
- P17. 8 simultaneous POST /loans/reserve for one item by 8 different members: exactly one
-      201, the rest 409.
- P18. 8 simultaneous POST /loans/{id}/return on one checked-out loan: exactly one 200; the
-      fee is charged once; the balance rises once.
- P19. One member, 6 simultaneous reserves of 6 different items: exactly 3 succeed.
- For each, print the count of each status code and a final GET proving consistency.
-
-Test clock modes (restart the API as needed; state the settings used)
- P20. ALLOW_TEST_CLOCK unset or false, with an X-Test-Clock header: status and body.
-      Expected: rejected, not silently ignored.
- P21. APP_ENV=production, ALLOW_TEST_CLOCK=true, TEST_CLOCK_KEY unset: does the API refuse
-      to start? Paste the startup output.
- P22. Is there any response header or /health field telling a client that the clock is
-      simulated or enabled?
-
-Input robustness (any 5xx is a defect: paste every one)
- P23. On POST /members, POST /items, POST /loans/reserve and POST /members/{id}/payments:
-      missing body; body null; array body; wrong Content-Type; "1" where an integer is
-      expected; 1.5; true; null; negative; 0; 2**63; 10**30; extra unknown fields;
-      name of 101 chars, 10000 chars, only spaces, containing "\u0000", an emoji;
-      phone "+91-98000-00001" duplicated from an existing member, with letters, 9 digits,
-      15 digits. Path ids: 0, -1, 99999999999999999999, "1e3".
- P24. GET /items, /members, /loans and /loans/overdue with limit=1,100,101,500 and
-      offset=0,-1,10**20. State the real maximum limit.
-
-CODE EXCERPTS (exact source with file path and line numbers, not summaries)
- C1. Where ItemResponse.status is computed, and how a stale reservation is treated on READ.
- C2. The function that settles or expires a reservation on WRITE. Which LoanStatus and
-     ItemStatus does it set? (LoanStatus has no EXPIRED value.)
- C3. The domain state machine or transition table, if one exists.
- C4. The locking code used in reserve, checkout, return and payment, and its lock order.
- C5. Run and paste: git grep -n -i -E "monoton|latest_event|CLOCK_BEFORE|lock_timeout|BUSY|FOR UPDATE|with_for_update"
- C6. PROMPTS.md: the lines of your last two "## Entry" headings (line numbers) and whether
-     the last entry contains Tool, Date and "What I did" lines. Print only; do not edit.
-
-OUTPUT (in this order)
- 1. A table: Probe | Expected | Observed | PASS/FAIL, one row per probe P1 to P24.
- 2. Raw request and response for every FAIL and every 5xx.
- 3. A defects list ordered by severity: S1 wrong business behaviour, S2 5xx or data
-    inconsistency, S3 contract or UX gap. For each: probe id and a one-line cause taken
-    from the code excerpts.
- 4. Restore: reseed the local database, stop the API, run pytest -q with DATABASE_URL set,
-    paste the summary lines, then git status -sb.
+M4 — STEP 1c: ASSIGNMENT EDGE-CASE PROBE. READ-ONLY (no repository changes).
+
+
+
+Scope guard:
+
+- Do NOT create, edit or delete any repository file (including PROMPTS.md). Do NOT run
+
+  git add, commit, push, pull, reset, checkout, clean or stash. Do NOT install packages.
+
+- Allowed writes: local development database rows (reseeded at the end) and files under
+
+  $env:TEMP.
+
+- Report only what you actually ran. If a probe cannot run, say why. Never mark PASS from
+
+  reading code alone.
+
+- Setup (same as Step 1b): APP_ENV=development, local DATABASE_URL, CORS_ORIGINS as in the
+
+  README, ALLOW_TEST_CLOCK=true, TEST_CLOCK_KEY=local-dev-clock-key-123456. Start from a
+
+  clean database (alembic downgrade base; alembic upgrade head; python -m scripts.seed).
+
+  Start the API on port 8000, stop it at the end, and reseed again at the end.
+
+- Write all probes as ONE standard-library Python script in $env:TEMP (urllib, json,
+
+  threading, datetime). Print one compact line per passing probe. Print the full
+
+  request, status and body only for probes that FAIL or surprise you.
+
+- Helper: call(method, path, body=None, clock=None) sends X-Test-Clock (ISO-8601 with Z,
+
+  microseconds allowed) plus X-Test-Clock-Key when clock is given, and returns
+
+  (status, parsed_json_or_text). Compute every clock value from timestamps returned by the
+
+  API (reserved_at, due_at, checked_out_at). Never use the script's own "now".
+
+
+
+PROBES (assignment rule -> expected):
+
+
+
+Rule 2, reservation expiry on READ and WRITE
+
+ P1. Reserve a fresh item X for member A; T = reserved_at. With clocks T+47h59m, T+48h00m
+
+     and T+48h01m call GET /items/X, GET /items?status=RESERVED and
+
+     GET /items?status=AVAILABLE.
+
+     Expected: RESERVED at 47h59m; AVAILABLE at 48h00m and 48h01m.
+
+ P2. Seeded stale reservation (loan 2, item 3), no clock header: GET /items/3,
+
+     GET /items?status=RESERVED, GET /items?status=AVAILABLE, GET /loans/2.
+
+     Expected: item 3 is AVAILABLE.
+
+ P3. For new reservations: checkout at T+47h59m succeeds; checkout at T+48h01m is
+
+     rejected; at T+48h01m a DIFFERENT member can reserve the same item; at T+47h59m a
+
+     different member cannot.
+
+ P4. After the reserve-over-expired in P3, GET /loans?item_id=X. What status does the
+
+     expired loan have now? Can anyone tell it expired rather than was cancelled?
+
+
+
+Rule 1, item states
+
+ P5. GET /items/7 (its loan is in /loans/overdue). Expected: Overdue.
+
+ P6. POST /items/{id}/maintenance on (a) an AVAILABLE item, (b) a RESERVED item,
+
+     (c) a CHECKED_OUT item. After each, GET /loans/{id} and GET /items/{id}. For (c) also:
+
+     can the loan be returned, what does the item show after the return, can it be
+
+     restored before and after the return?
+
+     Expected (README decisions): (b) the reservation is cancelled; (c) the loan stays
+
+     open, return is allowed, the item stays under maintenance until restored.
+
+ P7. Invalid transitions: reserve an item under maintenance; reserve a CHECKED_OUT item;
+
+     restore an AVAILABLE item; maintenance on an item already under maintenance.
+
+     Expected: a clear 4xx, never 5xx.
+
+
+
+Rule 3, late fee (return at clock times after due_at; use items worth at least 200000 paise)
+
+ P8. Return at due+0s, +1s, +23h59m59s, +24h, +24h1s, +48h1s, +19d1s, +20d1s.
+
+     Expected fee_charged in paise: 0, 1000, 1000, 1000, 2000, 3000, 20000, 20000.
+
+ P9. Value cap: create an item with replacement_value 15000, return 30 days late
+
+     (expected fee 15000). Create one with replacement_value 500, return 1 day late
+
+     (expected 500).
+
+ P10. Return the same loan twice. Expected: the second is a clear 409; the fee is charged
+
+      once; the member balance rises once.
+
+
+
+Rules 4, 5, 7, eligibility
+
+ P11. Member 5 (balance exactly 10000): reserve. Expected: success. Note that 10001
+
+      cannot be constructed from fees; say so.
+
+ P12. Member 7 has loan 6 due at D. Reserve for member 7 with clock D+14d (expected
+
+      allowed) and D+14d+1s (expected blocked). Use a free item each time.
+
+ P13. Active limit: a member with 2 active loans reserves a 3rd (ok) and a 4th (blocked);
+
+      after returning one, a reserve works again; an expired reservation does not count
+
+      (use a clock past 48h).
+
+ P14. Suspended member: reserve is blocked. Can the same member still return a
+
+      checked-out item, cancel a reservation and pay fees? Test each.
+
+
+
+Payments
+
+ P15. Pay exactly the balance (ok, balance 0), then pay 1 (error); pay balance+1 on another
+
+      member (error); payloads -1, 0, "10" (string), true, null, 99999999999999999999.
+
+      Two simultaneous payments of 3000 against a balance of 5000: exactly one succeeds.
+
+
+
+Concurrency (real HTTP, threads released together with threading.Barrier, 8 attempts)
+
+ P16. 8 simultaneous POST /loans/{id}/checkout on one reservation: exactly one 200, the
+
+      rest 409; one checked_out_at.
+
+ P17. 8 simultaneous POST /loans/reserve for one item by 8 different members: exactly one
+
+      201, the rest 409.
+
+ P18. 8 simultaneous POST /loans/{id}/return on one checked-out loan: exactly one 200; the
+
+      fee is charged once; the balance rises once.
+
+ P19. One member, 6 simultaneous reserves of 6 different items: exactly 3 succeed.
+
+ For each, print the count of each status code and a final GET proving consistency.
+
+
+
+Test clock modes (restart the API as needed; state the settings used)
+
+ P20. ALLOW_TEST_CLOCK unset or false, with an X-Test-Clock header: status and body.
+
+      Expected: rejected, not silently ignored.
+
+ P21. APP_ENV=production, ALLOW_TEST_CLOCK=true, TEST_CLOCK_KEY unset: does the API refuse
+
+      to start? Paste the startup output.
+
+ P22. Is there any response header or /health field telling a client that the clock is
+
+      simulated or enabled?
+
+
+
+Input robustness (any 5xx is a defect: paste every one)
+
+ P23. On POST /members, POST /items, POST /loans/reserve and POST /members/{id}/payments:
+
+      missing body; body null; array body; wrong Content-Type; "1" where an integer is
+
+      expected; 1.5; true; null; negative; 0; 2**63; 10**30; extra unknown fields;
+
+      name of 101 chars, 10000 chars, only spaces, containing "\u0000", an emoji;
+
+      phone "+91-98000-00001" duplicated from an existing member, with letters, 9 digits,
+
+      15 digits. Path ids: 0, -1, 99999999999999999999, "1e3".
+
+ P24. GET /items, /members, /loans and /loans/overdue with limit=1,100,101,500 and
+
+      offset=0,-1,10**20. State the real maximum limit.
+
+
+
+CODE EXCERPTS (exact source with file path and line numbers, not summaries)
+
+ C1. Where ItemResponse.status is computed, and how a stale reservation is treated on READ.
+
+ C2. The function that settles or expires a reservation on WRITE. Which LoanStatus and
+
+     ItemStatus does it set? (LoanStatus has no EXPIRED value.)
+
+ C3. The domain state machine or transition table, if one exists.
+
+ C4. The locking code used in reserve, checkout, return and payment, and its lock order.
+
+ C5. Run and paste: git grep -n -i -E "monoton|latest_event|CLOCK_BEFORE|lock_timeout|BUSY|FOR UPDATE|with_for_update"
+
+ C6. PROMPTS.md: the lines of your last two "## Entry" headings (line numbers) and whether
+
+     the last entry contains Tool, Date and "What I did" lines. Print only; do not edit.
+
+
+
+OUTPUT (in this order)
+
+ 1. A table: Probe | Expected | Observed | PASS/FAIL, one row per probe P1 to P24.
+
+ 2. Raw request and response for every FAIL and every 5xx.
+
+ 3. A defects list ordered by severity: S1 wrong business behaviour, S2 5xx or data
+
+    inconsistency, S3 contract or UX gap. For each: probe id and a one-line cause taken
+
+    from the code excerpts.
+
+ 4. Restore: reseed the local database, stop the API, run pytest -q with DATABASE_URL set,
+
+    paste the summary lines, then git status -sb.
+
 Do NOT fix anything. Do NOT start M4 Step 2.
 
 </details>
@@ -2910,90 +3129,174 @@ Do NOT fix anything. Do NOT start M4 Step 2.
 <details>
 <summary>Full prompt text (Entry 42)</summary>
 
-M4 — BACKEND FIX 1 of 8: MALFORMED INPUT MUST NEVER CAUSE A 5xx. TEST-FIRST.
-
-Scope guard:
-- Backend only. You may edit: backend/app/schemas/*, backend/app/api/routers/*,
-  backend/app/api/errors.py, backend/tests/**.
-- Do NOT change business rules, service logic, models, migrations, README.md,
-  SUBMISSION.md or PROMPTS.md. Do NOT touch frontend/.
-- Do NOT run git add, commit, push, pull, reset, checkout, clean or stash. I commit myself.
-- Report only commands you actually ran. Paste raw summary lines.
-- Every pytest run uses the local PostgreSQL (DATABASE_URL set) with -rs. State the number
-  of skipped tests (must be 0).
-
-Background (verified on the running API): these inputs returned HTTP 500 with a leaked
-psycopg DataError:
- 1. POST /items replacement_value 2**63 and 10**30 (the column is INTEGER, max 2147483647)
- 2. POST /members with a name containing "\u0000"
- 3. GET /items/99999999999999999999 (path id)
- 4. offset=10**20 on /items, /members, /loans and /loans/overdue
-Probably the same class, not yet probed: other id fields and query filters, PATCH bodies,
-payment notes, lone surrogates, extreme X-Test-Clock values.
-
-TASK A — write failing tests first: backend/tests/api/test_input_robustness.py
-Use the existing API test client against the real app and the real database. Assert the
-status, the standard error envelope (error, detail, code, request_id), and that the body
-contains no SQL, no "psycopg" and no "Traceback". Cases:
- - Money: replacement_value (POST and PATCH /items) and amount_paise (payments): 0, -1,
-   2147483647 (valid for items: 201), 2147483648, 2**63, 10**30 -> 422 for invalid or
-   out-of-range values.
- - Ids: every {id} path parameter on the /items, /members and /loans routes, and
-   member_id / item_id in POST /loans/reserve and in query filters: 0, -1,
-   2147483648, 2**63, 10**20 -> 422; 2147483647 as a path id -> 404 (valid, not found).
- - Pagination: limit and offset: -1, 2147483648, 10**20 -> 422; offset 0 and 2147483647
-   are accepted.
- - Text: name, category, condition_note, phone and the payment note containing "\u0000";
-   containing a lone surrogate (send the raw JSON text "\ud800"); single-line fields (name,
-   category, phone) containing "\n" or "\u0007" -> 422. Notes may contain "\n" and "\t".
- - One systematic test: iterate over app.openapi() paths and operations. For each, send the
-   request with path and query parameters set to each hostile value (0, -1, 2**31, 2**63,
-   10**20, "abc", "1e3", "%00", "", a 5000-character string, "🔧") and a valid-looking JSON
-   body where one is required. Assert status < 500 for every call.
-Run the new tests BEFORE any fix. Paste the failing summary (which cases fail).
-
-TASK B — fix
- - One shared constant MAX_DB_INT = 2_147_483_647 in backend/app/schemas/common.py and
-   reusable validated types (for example PositiveId, PositivePaise, SingleLineText, NoteText)
-   used by every schema, every router Path/Query parameter and every body id. Do not copy
-   numbers into individual files.
- - Strings: keep the existing strip behaviour. Reject NUL and any text that cannot be
-   encoded as UTF-8. Single-line fields (name, category, phone) also reject control
-   characters; notes allow \n and \t.
- - Ids (path, query, body): ge=1, le=MAX_DB_INT. offset: ge=0, le=MAX_DB_INT.
- - Add a safety-net handler: sqlalchemy.exc.DataError -> HTTP 422, code VALIDATION_ERROR,
-   generic detail ("A value is out of the allowed range."). Log at WARNING with request_id
-   and the exception class only (no SQL, no parameters). All other database errors keep
-   their current handling.
- - X-Test-Clock: any header value that makes the server raise (OverflowError,
-   ValueError) must produce 400 BAD_REQUEST, never 5xx. Do not add new clock rules here.
- - Do not change currently passing behaviour. Do not weaken or delete existing tests.
-
-TASK C — verify
- 1. ruff check . ; ruff format --check .
- 2. pytest -q -rs with DATABASE_URL set. Paste the summary lines and the skipped count.
- 3. Start the API locally and, with a stdlib script in $env:TEMP, replay the original
-    failing requests plus: POST /loans/reserve with member_id 2**63; PATCH
-    /members/99999999999999999999; GET /loans?item_id=10**20; GET /items?limit=10**20;
-    X-Test-Clock set to "9999-12-31T00:00:00Z", "0001-01-01T00:00:00Z",
-    "2026-13-45T00:00:00Z" and a 5000-character string. Print "request -> status -> code".
-    None may be 5xx.
- 4. Report (do not change) what POST /members returns now for: a duplicate phone, a
-    9-digit phone and a 15-digit phone (status and code).
- 5. Restore the local database (alembic downgrade base; alembic upgrade head;
-    python -m scripts.seed), stop the API process, then run git status -sb and
-    git diff --stat.
-
-OUTPUT
- - Files changed (path plus one line each), tests added (names), before and after pytest
-   summaries.
- - Any decision you had to make (for example a limit you chose) and why.
- - Suggested commits, at most 4, as Conventional Commits with the [M3] tag, each with the
-   exact files to stage:
-     test(api): [M3] add malformed-input regression tests
-     fix(api): [M3] bound ids, amounts and offsets to the database range
-     fix(api): [M3] reject NUL and control characters in text fields
-     fix(api): [M3] map database data errors to 422
+M4 — BACKEND FIX 1 of 8: MALFORMED INPUT MUST NEVER CAUSE A 5xx. TEST-FIRST.
+
+
+
+Scope guard:
+
+- Backend only. You may edit: backend/app/schemas/*, backend/app/api/routers/*,
+
+  backend/app/api/errors.py, backend/tests/**.
+
+- Do NOT change business rules, service logic, models, migrations, README.md,
+
+  SUBMISSION.md or PROMPTS.md. Do NOT touch frontend/.
+
+- Do NOT run git add, commit, push, pull, reset, checkout, clean or stash. I commit myself.
+
+- Report only commands you actually ran. Paste raw summary lines.
+
+- Every pytest run uses the local PostgreSQL (DATABASE_URL set) with -rs. State the number
+
+  of skipped tests (must be 0).
+
+
+
+Background (verified on the running API): these inputs returned HTTP 500 with a leaked
+
+psycopg DataError:
+
+ 1. POST /items replacement_value 2**63 and 10**30 (the column is INTEGER, max 2147483647)
+
+ 2. POST /members with a name containing "\u0000"
+
+ 3. GET /items/99999999999999999999 (path id)
+
+ 4. offset=10**20 on /items, /members, /loans and /loans/overdue
+
+Probably the same class, not yet probed: other id fields and query filters, PATCH bodies,
+
+payment notes, lone surrogates, extreme X-Test-Clock values.
+
+
+
+TASK A — write failing tests first: backend/tests/api/test_input_robustness.py
+
+Use the existing API test client against the real app and the real database. Assert the
+
+status, the standard error envelope (error, detail, code, request_id), and that the body
+
+contains no SQL, no "psycopg" and no "Traceback". Cases:
+
+ - Money: replacement_value (POST and PATCH /items) and amount_paise (payments): 0, -1,
+
+   2147483647 (valid for items: 201), 2147483648, 2**63, 10**30 -> 422 for invalid or
+
+   out-of-range values.
+
+ - Ids: every {id} path parameter on the /items, /members and /loans routes, and
+
+   member_id / item_id in POST /loans/reserve and in query filters: 0, -1,
+
+   2147483648, 2**63, 10**20 -> 422; 2147483647 as a path id -> 404 (valid, not found).
+
+ - Pagination: limit and offset: -1, 2147483648, 10**20 -> 422; offset 0 and 2147483647
+
+   are accepted.
+
+ - Text: name, category, condition_note, phone and the payment note containing "\u0000";
+
+   containing a lone surrogate (send the raw JSON text "\ud800"); single-line fields (name,
+
+   category, phone) containing "\n" or "\u0007" -> 422. Notes may contain "\n" and "\t".
+
+ - One systematic test: iterate over app.openapi() paths and operations. For each, send the
+
+   request with path and query parameters set to each hostile value (0, -1, 2**31, 2**63,
+
+   10**20, "abc", "1e3", "%00", "", a 5000-character string, "🔧") and a valid-looking JSON
+
+   body where one is required. Assert status < 500 for every call.
+
+Run the new tests BEFORE any fix. Paste the failing summary (which cases fail).
+
+
+
+TASK B — fix
+
+ - One shared constant MAX_DB_INT = 2_147_483_647 in backend/app/schemas/common.py and
+
+   reusable validated types (for example PositiveId, PositivePaise, SingleLineText, NoteText)
+
+   used by every schema, every router Path/Query parameter and every body id. Do not copy
+
+   numbers into individual files.
+
+ - Strings: keep the existing strip behaviour. Reject NUL and any text that cannot be
+
+   encoded as UTF-8. Single-line fields (name, category, phone) also reject control
+
+   characters; notes allow \n and \t.
+
+ - Ids (path, query, body): ge=1, le=MAX_DB_INT. offset: ge=0, le=MAX_DB_INT.
+
+ - Add a safety-net handler: sqlalchemy.exc.DataError -> HTTP 422, code VALIDATION_ERROR,
+
+   generic detail ("A value is out of the allowed range."). Log at WARNING with request_id
+
+   and the exception class only (no SQL, no parameters). All other database errors keep
+
+   their current handling.
+
+ - X-Test-Clock: any header value that makes the server raise (OverflowError,
+
+   ValueError) must produce 400 BAD_REQUEST, never 5xx. Do not add new clock rules here.
+
+ - Do not change currently passing behaviour. Do not weaken or delete existing tests.
+
+
+
+TASK C — verify
+
+ 1. ruff check . ; ruff format --check .
+
+ 2. pytest -q -rs with DATABASE_URL set. Paste the summary lines and the skipped count.
+
+ 3. Start the API locally and, with a stdlib script in $env:TEMP, replay the original
+
+    failing requests plus: POST /loans/reserve with member_id 2**63; PATCH
+
+    /members/99999999999999999999; GET /loans?item_id=10**20; GET /items?limit=10**20;
+
+    X-Test-Clock set to "9999-12-31T00:00:00Z", "0001-01-01T00:00:00Z",
+
+    "2026-13-45T00:00:00Z" and a 5000-character string. Print "request -> status -> code".
+
+    None may be 5xx.
+
+ 4. Report (do not change) what POST /members returns now for: a duplicate phone, a
+
+    9-digit phone and a 15-digit phone (status and code).
+
+ 5. Restore the local database (alembic downgrade base; alembic upgrade head;
+
+    python -m scripts.seed), stop the API process, then run git status -sb and
+
+    git diff --stat.
+
+
+
+OUTPUT
+
+ - Files changed (path plus one line each), tests added (names), before and after pytest
+
+   summaries.
+
+ - Any decision you had to make (for example a limit you chose) and why.
+
+ - Suggested commits, at most 4, as Conventional Commits with the [M3] tag, each with the
+
+   exact files to stage:
+
+     test(api): [M3] add malformed-input regression tests
+
+     fix(api): [M3] bound ids, amounts and offsets to the database range
+
+     fix(api): [M3] reject NUL and control characters in text fields
+
+     fix(api): [M3] map database data errors to 422
+
 Stop after this. Do not start any other fix. Do not start the frontend.
 
 </details>
@@ -3009,80 +3312,154 @@ Stop after this. Do not start any other fix. Do not start the frontend.
 <details>
 <summary>Full prompt text (Entry 43)</summary>
 
-M4 — BACKEND FIX 1b: CLOSE THE GAPS IN FIX 1. NO NEW FEATURES.
-
-Scope guard (same as Fix 1):
-- Backend only. Allowed edits: backend/app/schemas/*, backend/app/api/routers/*,
-  backend/app/api/errors.py, backend/tests/**, backend/pyproject.toml (only to register a
-  pytest marker).
-- Do NOT edit PROMPTS.md, README.md, SUBMISSION.md or anything in frontend/.
-- Do NOT run git add, commit, push, pull, reset, checkout, clean or stash.
-- Report only commands you actually ran, with raw output. DATABASE_URL set for every pytest
-  run (local PostgreSQL). Report the skipped count (must be 0).
-
-A. PROOF THAT THE TESTS FAIL ON THE OLD CODE (read-only)
- 1. pytest --collect-only -q tests/api/test_input_robustness.py : paste the last lines and
-    the number of cases per test function.
- 2. Build a pristine copy of the last commit without touching the repository:
-      $tmp = "$env:TEMP\head_check"
-      Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
-      New-Item -ItemType Directory $tmp | Out-Null
-      git archive --format=zip -o "$tmp\head.zip" HEAD
-      Expand-Archive "$tmp\head.zip" -DestinationPath "$tmp\repo"
-      Copy-Item backend\tests\api\test_input_robustness.py "$tmp\repo\backend\tests\api\"
-    From "$tmp\repo\backend" run, with the repo's own venv python:
-      D:\files\KJBN\Equipment_rental_desk\backend\.venv\Scripts\python.exe -m pytest -q --tb=no -rfE -p no:cacheprovider tests/api/test_input_robustness.py
-    Paste the FULL list of FAILED/ERROR test ids and the summary line.
- 3. For every test function with cases that PASS on the old code, explain why. A test that
-    targets a Fix 1 defect (NUL in a name, lone surrogate, id overflow, offset overflow,
-    money above 2147483647, extreme X-Test-Clock) must fail on the old code. If one cannot
-    fail, the test is not testing the defect: make the test stricter. Do NOT weaken any test.
- 4. State what you changed in test_input_robustness.py after the first red run, and why.
- 5. Re-run the final file against the FIXED code and paste the summary.
- 6. Reseed the dev database afterwards (the old-code run writes rows):
-    alembic downgrade base; alembic upgrade head; python -m scripts.seed.
-
-B. PATCH /items condition_note: PRESERVE THE OLD BEHAVIOUR
- 1. From the last commit (git show HEAD:backend/app/schemas/item.py,
-    HEAD:backend/app/api/routers/items.py, HEAD:backend/app/services/item_service.py)
-    report how the OLD code treated condition_note on PATCH for: omitted, null, "", "   ",
-    "x" (what is stored afterwards).
- 2. Fix 1 changed this: the router now maps an explicit null to "". Restore the OLD
-    behaviour exactly while keeping the new validation (NUL, control characters, UTF-8).
-    Prefer doing it inside the ItemUpdate schema rather than the router.
- 3. Add tests named test_patch_item_condition_note_* for each of the five inputs above,
-    asserting the OLD behaviour you reported.
- 4. If the old behaviour is ambiguous or surprising, do NOT redesign it: describe it and
-    stop for my decision.
-
-C. SPEED
- 1. Run pytest --durations=10 on the new file. If any test takes more than 30 seconds
-    (probably test_systematic_openapi_fuzzing), make it faster WITHOUT dropping cases:
-    reuse one client or fixture, avoid per-call database resets, batch the hostile values.
- 2. If it is still over 60 seconds, register a `slow` marker in pyproject.toml and mark
-    that test. The default test command must still run it. Say how to run with and without it.
- 3. Paste before and after durations and the full-suite duration.
-
-D. CLARIFICATIONS (report only, no change unless stated)
- 1. Name the exact line (file:line) that raises OverflowError for X-Test-Clock
-    9999-12-31T00:00:00Z on a WRITE: POST /loans/reserve with that clock. Show the status
-    and body, and show that the database is unchanged afterwards (member and item rows).
-    If no regression test covers it, add one.
- 2. Which Unicode categories does the single-line validator reject? Show the status for
-    names "Ravi 👨🔧" (contains U+200D) and "Ravi\u200bKumar". Do not change the rule.
- 3. Paste the migration lines that define the types of the id, replacement_value,
-    fee_charged and amount columns (INTEGER or BIGINT).
- 4. git diff --stat PROMPTS.md : did you edit PROMPTS.md in this or any previous step?
-    Answer yes or no.
-
-E. VERIFY AND REPORT
- 1. ruff check . ; ruff format --check .
- 2. Full pytest -q -rs : summary line, skipped count and duration.
- 3. git status -sb ; git diff --stat
- 4. Suggested commits (Conventional Commits with the [M3] tag), arranged so that EACH
-    commit leaves the app importable and its own tests passing for the code it contains.
-    Give the exact git add paths for each. If a commit order cannot satisfy this, say so
-    and give the smallest alternative.
+M4 — BACKEND FIX 1b: CLOSE THE GAPS IN FIX 1. NO NEW FEATURES.
+
+
+
+Scope guard (same as Fix 1):
+
+- Backend only. Allowed edits: backend/app/schemas/*, backend/app/api/routers/*,
+
+  backend/app/api/errors.py, backend/tests/**, backend/pyproject.toml (only to register a
+
+  pytest marker).
+
+- Do NOT edit PROMPTS.md, README.md, SUBMISSION.md or anything in frontend/.
+
+- Do NOT run git add, commit, push, pull, reset, checkout, clean or stash.
+
+- Report only commands you actually ran, with raw output. DATABASE_URL set for every pytest
+
+  run (local PostgreSQL). Report the skipped count (must be 0).
+
+
+
+A. PROOF THAT THE TESTS FAIL ON THE OLD CODE (read-only)
+
+ 1. pytest --collect-only -q tests/api/test_input_robustness.py : paste the last lines and
+
+    the number of cases per test function.
+
+ 2. Build a pristine copy of the last commit without touching the repository:
+
+      $tmp = "$env:TEMP\head_check"
+
+      Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+
+      New-Item -ItemType Directory $tmp | Out-Null
+
+      git archive --format=zip -o "$tmp\head.zip" HEAD
+
+      Expand-Archive "$tmp\head.zip" -DestinationPath "$tmp\repo"
+
+      Copy-Item backend\tests\api\test_input_robustness.py "$tmp\repo\backend\tests\api\"
+
+    From "$tmp\repo\backend" run, with the repo's own venv python:
+
+      D:\files\KJBN\Equipment_rental_desk\backend\.venv\Scripts\python.exe -m pytest -q --tb=no -rfE -p no:cacheprovider tests/api/test_input_robustness.py
+
+    Paste the FULL list of FAILED/ERROR test ids and the summary line.
+
+ 3. For every test function with cases that PASS on the old code, explain why. A test that
+
+    targets a Fix 1 defect (NUL in a name, lone surrogate, id overflow, offset overflow,
+
+    money above 2147483647, extreme X-Test-Clock) must fail on the old code. If one cannot
+
+    fail, the test is not testing the defect: make the test stricter. Do NOT weaken any test.
+
+ 4. State what you changed in test_input_robustness.py after the first red run, and why.
+
+ 5. Re-run the final file against the FIXED code and paste the summary.
+
+ 6. Reseed the dev database afterwards (the old-code run writes rows):
+
+    alembic downgrade base; alembic upgrade head; python -m scripts.seed.
+
+
+
+B. PATCH /items condition_note: PRESERVE THE OLD BEHAVIOUR
+
+ 1. From the last commit (git show HEAD:backend/app/schemas/item.py,
+
+    HEAD:backend/app/api/routers/items.py, HEAD:backend/app/services/item_service.py)
+
+    report how the OLD code treated condition_note on PATCH for: omitted, null, "", "   ",
+
+    "x" (what is stored afterwards).
+
+ 2. Fix 1 changed this: the router now maps an explicit null to "". Restore the OLD
+
+    behaviour exactly while keeping the new validation (NUL, control characters, UTF-8).
+
+    Prefer doing it inside the ItemUpdate schema rather than the router.
+
+ 3. Add tests named test_patch_item_condition_note_* for each of the five inputs above,
+
+    asserting the OLD behaviour you reported.
+
+ 4. If the old behaviour is ambiguous or surprising, do NOT redesign it: describe it and
+
+    stop for my decision.
+
+
+
+C. SPEED
+
+ 1. Run pytest --durations=10 on the new file. If any test takes more than 30 seconds
+
+    (probably test_systematic_openapi_fuzzing), make it faster WITHOUT dropping cases:
+
+    reuse one client or fixture, avoid per-call database resets, batch the hostile values.
+
+ 2. If it is still over 60 seconds, register a `slow` marker in pyproject.toml and mark
+
+    that test. The default test command must still run it. Say how to run with and without it.
+
+ 3. Paste before and after durations and the full-suite duration.
+
+
+
+D. CLARIFICATIONS (report only, no change unless stated)
+
+ 1. Name the exact line (file:line) that raises OverflowError for X-Test-Clock
+
+    9999-12-31T00:00:00Z on a WRITE: POST /loans/reserve with that clock. Show the status
+
+    and body, and show that the database is unchanged afterwards (member and item rows).
+
+    If no regression test covers it, add one.
+
+ 2. Which Unicode categories does the single-line validator reject? Show the status for
+
+    names "Ravi 👨🔧" (contains U+200D) and "Ravi\u200bKumar". Do not change the rule.
+
+ 3. Paste the migration lines that define the types of the id, replacement_value,
+
+    fee_charged and amount columns (INTEGER or BIGINT).
+
+ 4. git diff --stat PROMPTS.md : did you edit PROMPTS.md in this or any previous step?
+
+    Answer yes or no.
+
+
+
+E. VERIFY AND REPORT
+
+ 1. ruff check . ; ruff format --check .
+
+ 2. Full pytest -q -rs : summary line, skipped count and duration.
+
+ 3. git status -sb ; git diff --stat
+
+ 4. Suggested commits (Conventional Commits with the [M3] tag), arranged so that EACH
+
+    commit leaves the app importable and its own tests passing for the code it contains.
+
+    Give the exact git add paths for each. If a commit order cannot satisfy this, say so
+
+    and give the smallest alternative.
+
 Stop after this report. Do not start Fix 2.
 
 </details>
@@ -3098,40 +3475,74 @@ Stop after this report. Do not start Fix 2.
 <details>
 <summary>Full prompt text (Entry 44)</summary>
 
-M4 — BACKEND FIX 1c: FINAL CLOSURE OF FIX 1. ONE SMALL RULE CHANGE, THEN PROOF.
-
-Scope guard:
-- Backend only. Allowed edits: backend/app/schemas/common.py and
-  backend/tests/api/test_input_robustness.py. Nothing else.
-- Do NOT edit PROMPTS.md, README.md, SUBMISSION.md, frontend/, migrations or services.
-- Do NOT run git add, commit, push, pull, reset, checkout, clean or stash.
-- Paste RAW command output. Never shorten, reformat or paraphrase it (the earlier
-  collect-only listing was edited). If output is long, paste the first and last 15 lines
-  and say how many lines were omitted.
-- DATABASE_URL set for every pytest run (local PostgreSQL). Report the skipped count
-  (must be 0).
-
-1. TEXT VALIDATOR: STOP REJECTING WHOLE UNICODE CATEGORIES
-Problem: the single-line validator rejects every character whose category starts with "C".
-That rejects ZWNJ U+200C and ZWJ U+200D (needed in Persian, Malayalam, Sinhala and emoji
-sequences) and any code point that Python's unicodedata (Unicode 15) still calls
-unassigned (Cn), such as newer emoji.
-New rule for single-line fields (name, category, phone):
- - reject: NUL; every Cc control character; surrogates or text that cannot be encoded as
-   UTF-8; and this explicit invisible/bidi blocklist: U+200B, U+2028, U+2029,
-   U+202A..U+202E, U+2060, U+2066..U+2069, U+FEFF.
- - allow everything else, including U+200C, U+200D, private-use and unassigned code points.
-Notes (condition_note, payment note): same rule, but \n, \r and \t are also allowed.
-Keep the existing strip behaviour. Define the blocklist once, as a named constant in
-schemas/common.py, with a comment saying why each entry is there.
-Tests (add to test_input_robustness.py, against POST /members or POST /items). Write the
-strings as Python literals with \u escapes:
- - accepted (201): "\u0DC1\u0DCA\u200D\u0DBB\u0DD3 Perera" (Sinhala, contains U+200D),
-   "\u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u0645" (Persian, ZWNJ),
-   "Ravi \U0001F468\u200D\U0001F527", "\u0B95\u0BCB\u0BB5\u0BC8" (Tamil),
-   "\u0930\u093E\u092E" (Hindi), "\u0645\u062D\u0645\u062F" (Arabic),
-   "Ravi \U0001FAE9" (an emoji newer than Python's Unicode tables).
- - rejected (422): "Ravi\u200bKumar", "\ufeffRavi", "Ravi\u202eKumar", "Ravi\u2028Kumar".
+M4 — BACKEND FIX 1c: FINAL CLOSURE OF FIX 1. ONE SMALL RULE CHANGE, THEN PROOF.
+
+
+
+Scope guard:
+
+- Backend only. Allowed edits: backend/app/schemas/common.py and
+
+  backend/tests/api/test_input_robustness.py. Nothing else.
+
+- Do NOT edit PROMPTS.md, README.md, SUBMISSION.md, frontend/, migrations or services.
+
+- Do NOT run git add, commit, push, pull, reset, checkout, clean or stash.
+
+- Paste RAW command output. Never shorten, reformat or paraphrase it (the earlier
+
+  collect-only listing was edited). If output is long, paste the first and last 15 lines
+
+  and say how many lines were omitted.
+
+- DATABASE_URL set for every pytest run (local PostgreSQL). Report the skipped count
+
+  (must be 0).
+
+
+
+1. TEXT VALIDATOR: STOP REJECTING WHOLE UNICODE CATEGORIES
+
+Problem: the single-line validator rejects every character whose category starts with "C".
+
+That rejects ZWNJ U+200C and ZWJ U+200D (needed in Persian, Malayalam, Sinhala and emoji
+
+sequences) and any code point that Python's unicodedata (Unicode 15) still calls
+
+unassigned (Cn), such as newer emoji.
+
+New rule for single-line fields (name, category, phone):
+
+ - reject: NUL; every Cc control character; surrogates or text that cannot be encoded as
+
+   UTF-8; and this explicit invisible/bidi blocklist: U+200B, U+2028, U+2029,
+
+   U+202A..U+202E, U+2060, U+2066..U+2069, U+FEFF.
+
+ - allow everything else, including U+200C, U+200D, private-use and unassigned code points.
+
+Notes (condition_note, payment note): same rule, but \n, \r and \t are also allowed.
+
+Keep the existing strip behaviour. Define the blocklist once, as a named constant in
+
+schemas/common.py, with a comment saying why each entry is there.
+
+Tests (add to test_input_robustness.py, against POST /members or POST /items). Write the
+
+strings as Python literals with \u escapes:
+
+ - accepted (201): "\u0DC1\u0DCA\u200D\u0DBB\u0DD3 Perera" (Sinhala, contains U+200D),
+
+   "\u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u0645" (Persian, ZWNJ),
+
+   "Ravi \U0001F468\u200D\U0001F527", "\u0B95\u0BCB\u0BB5\u0BC8" (Tamil),
+
+   "\u0930\u093E\u092E" (Hindi), "\u0645\u062D\u0645\u062F" (Arabic),
+
+   "Ravi \U0001FAE9" (an emoji newer than Python's Unicode tables).
+
+ - rejected (422): "Ravi\u200bKumar", "\ufeffRavi", "Ravi\u202eKumar", "Ravi\u2028Kumar".
+
  - the existing NUL / control-character /goal
 
 </details>
@@ -3147,31 +3558,56 @@ strings as Python literals with \u escapes:
 <details>
 <summary>Full prompt text (Entry 45)</summary>
 
-FIX 1d — COMPLETE THE PARTS OF FIX 1c THAT WERE NOT DELIVERED. NO NEW CODE UNLESS STATED.
-
-Scope guard: same as Fix 1c. Edit nothing, except that you may adjust
-backend/tests/api/test_input_robustness.py only if a check below proves a test is wrong.
-No git writes. Do NOT edit PROMPTS.md. Do NOT print any "GOAL_COMPLETE" or similar marker.
-Paste RAW output only: if output is long, paste the first and last 15 lines and say how many
-lines you omitted. Never retype, reformat or shorten command output.
-
-Do these four things from the Fix 1c prompt, exactly as specified there:
- 2. Proof against the last commit with file identity: print the SHA256 of the current
-    test file and of the copy placed in the pristine HEAD tree (they must be equal); run the
-    file in the HEAD tree and paste every FAILED id plus the summary line; say for each new
-    unicode test whether it passes or fails on the old code and why; reseed; run it on the
-    current code.
- 3. Each suggested commit on its own: build the four cumulative temp trees (C1..C4) and
-    paste, per tree, the import result, ruff result and the full pytest summary line.
-    If any tree fails, give the smallest regrouping that passes all four, and re-check it.
- 4. Extreme test clocks on writes (investigation only): items a to f. Print real
-    request_ids. Include the psql output.
- 5. Final report: ruff, full pytest (summary, skipped count, duration), git status -sb,
-    git diff --stat, and the four commit commands with the subject length printed next to
-    each subject.
-Also paste the real, unedited output of:
-  python -m pytest --collect-only -q tests/api/test_input_robustness.py
-(the first 12 and last 12 lines are enough; every line must show the file path).
+FIX 1d — COMPLETE THE PARTS OF FIX 1c THAT WERE NOT DELIVERED. NO NEW CODE UNLESS STATED.
+
+
+
+Scope guard: same as Fix 1c. Edit nothing, except that you may adjust
+
+backend/tests/api/test_input_robustness.py only if a check below proves a test is wrong.
+
+No git writes. Do NOT edit PROMPTS.md. Do NOT print any "GOAL_COMPLETE" or similar marker.
+
+Paste RAW output only: if output is long, paste the first and last 15 lines and say how many
+
+lines you omitted. Never retype, reformat or shorten command output.
+
+
+
+Do these four things from the Fix 1c prompt, exactly as specified there:
+
+ 2. Proof against the last commit with file identity: print the SHA256 of the current
+
+    test file and of the copy placed in the pristine HEAD tree (they must be equal); run the
+
+    file in the HEAD tree and paste every FAILED id plus the summary line; say for each new
+
+    unicode test whether it passes or fails on the old code and why; reseed; run it on the
+
+    current code.
+
+ 3. Each suggested commit on its own: build the four cumulative temp trees (C1..C4) and
+
+    paste, per tree, the import result, ruff result and the full pytest summary line.
+
+    If any tree fails, give the smallest regrouping that passes all four, and re-check it.
+
+ 4. Extreme test clocks on writes (investigation only): items a to f. Print real
+
+    request_ids. Include the psql output.
+
+ 5. Final report: ruff, full pytest (summary, skipped count, duration), git status -sb,
+
+    git diff --stat, and the four commit commands with the subject length printed next to
+
+    each subject.
+
+Also paste the real, unedited output of:
+
+  python -m pytest --collect-only -q tests/api/test_input_robustness.py
+
+(the first 12 and last 12 lines are enough; every line must show the file path).
+
 Stop after this report. Do not start Fix 2.
 
 </details>
@@ -3187,131 +3623,256 @@ Stop after this report. Do not start Fix 2.
 <details>
 <summary>Full prompt text (Entry 46)</summary>
 
-M4 — BACKEND FIX 2: TEST CLOCK HARDENING. INVESTIGATE FIRST, THEN TESTS, THEN FIX.
-
-Scope guard:
-- Backend only. Allowed edits: backend/app/core/clock.py, backend/app/core/config.py,
-  backend/app/core/middleware.py, backend/app/main.py, backend/app/api/errors.py,
-  backend/app/api/routers/health.py, backend/app/schemas/* (only for the health response),
-  backend/tests/**, .env.example (variables only).
-- Do NOT edit services, models, migrations, PROMPTS.md, README.md, SUBMISSION.md or
-  anything in frontend/. Do NOT change business rules.
-- No git writes (add, commit, push, pull, reset, checkout, clean, stash). I commit myself.
-- Paste RAW output only; never retype or reformat it. If output is long, paste the first
-  and last 15 lines and say how many lines you omitted. Do not print any "GOAL_COMPLETE" or
-  similar marker. Report only commands you actually ran.
-- Every pytest run uses the local PostgreSQL (DATABASE_URL set) with -rs. Skipped must be 0.
-- Run ruff on the whole backend: ruff check . ; ruff format --check .
-
-Decisions already approved (do not re-debate):
- - The clock is disabled by default. APP_ENV unset means production.
- - It may be enabled in production only with a key. The app must refuse to start otherwise.
- - It is request-scoped, never global.
- - A simulated time must be visible to clients.
- - Window: the simulated time must be within 90 days of the real server time, before or after.
-
-STEP 0 — INVESTIGATION (no code changes). With the current code, dev settings
-(ALLOW_TEST_CLOCK=true, TEST_CLOCK_KEY=local-dev-clock-key-123456), from a freshly seeded DB:
- a. Create member M1 and item I1. POST /loans/reserve {M1, I1} with
-    X-Test-Clock 9999-12-31T00:00:00Z. Raw status and body. Note the loan id L.
- b. WITHOUT any clock header, run each and paste status and body:
-    GET /loans/L ; GET /items/I1 ; GET /items?status=RESERVED ; GET /members/M1 ;
-    GET /members/M1/statement ; GET /loans?item_id=I1 ; GET /loans/overdue ;
-    POST /loans/reserve {M2, I1} (M2 is a fresh member) ;
-    POST /loans/reserve {M1, I_other} (I_other is a fresh item) ;
-    POST /loans/L/checkout ; POST /loans/L/cancel ;
-    POST /items/I1/maintenance.
- c. Print the stored row from the database: id, status, reserved_at for loan L.
- d. In one sentence each: (1) can the item I1 still be reserved by anyone? (2) can member M1
-    still reserve other items? (3) can the loan be cancelled or checked out in real time?
- e. Repeat a and b with a fresh member and item for X-Test-Clock 0001-01-01T00:00:00Z,
-    including POST /loans/{id}/checkout and /cancel without a header if a loan was created.
- f. Explain how the clock is made available to code: which file and line reads the header,
-    which object holds the value (contextvar, request.state, a module-level variable?), and
-    whether two simultaneous requests with different clocks could see each other's value.
- g. Print the current logic for "enabled" (config.py and clock.py): what happens when
-    APP_ENV=production and ALLOW_TEST_CLOCK=true, with and without TEST_CLOCK_KEY?
- Reseed the dev database when finished (alembic downgrade base; alembic upgrade head;
- python -m scripts.seed).
-
-STEP A — WRITE FAILING TESTS FIRST: backend/tests/api/test_test_clock.py
-(plus unit tests in backend/tests/unit/ for settings validation). Run them BEFORE the fix
-and paste the failing ids. Cases:
- 1. Window: with the key, a clock at real_now +90d is accepted, +90d+1s is rejected,
-    -90d is accepted, -90d-1s is rejected; also 9999-12-31, 0001-01-01, naive timestamps
-    (no timezone), "2026-13-45T00:00:00Z", "", "abc", a 5000-character string, a value
-    with a trailing space. Every rejection must be HTTP 422 with code INVALID_TEST_CLOCK
-    and the standard error envelope, AND the database must be unchanged (loan, item and
-    member row counts) after a rejected WRITE such as POST /loans/reserve.
- 2. Wedge regression: after any rejected clock, a normal request without a clock header
-    must work exactly as before (reserve, cancel, return all succeed).
- 3. Disabled (default): ALLOW_TEST_CLOCK unset or false and an X-Test-Clock header present
-    -> 403 TEST_CLOCK_DISABLED (not ignored). No header -> normal.
- 4. Authorization when enabled: missing key -> 403 TEST_CLOCK_UNAUTHORIZED; wrong key ->
-    403 TEST_CLOCK_UNAUTHORIZED; correct key -> 200. The response body must never contain
-    the configured key, and the key must never appear in captured log records (use caplog).
-    Compare keys with hmac.compare_digest.
- 5. Startup rules (unit tests of the settings or app-factory function, no server needed):
-    APP_ENV unset -> treated as production. production + ALLOW_TEST_CLOCK=true + no key ->
-    startup fails with a clear error; key shorter than 16 characters -> startup fails; key of
-    16 or more characters -> starts. development or test + enabled + no key -> starts.
-    production + ALLOW_TEST_CLOCK unset -> starts, clock disabled.
-    Today production silently forces the clock off: replace that with the fail-fast
-    behaviour above.
- 6. Request scoping: two threads (threading.Barrier) send GET /loans/overdue at the same time
-    with different valid clocks and one with none; each response must reflect only its own
-    clock (use data that differs by clock). After they finish, a plain request uses real time.
- 7. Visibility: every response produced while a simulated clock is in effect has the header
-    X-Clock-Mode: test, including error responses (for example a 404 with a valid clock).
-    Responses without a simulated clock do not have it. The CORS configuration exposes
-    X-Clock-Mode and X-Request-ID (expose_headers) so a browser can read them: assert it with
-    a request that has an Origin header.
- 8. /health returns {"status": "ok", "test_clock_enabled": <bool>} and never any secret.
-    Update the existing health tests to this new contract and list in your report each test
-    you changed and why. This is an intentional contract change, not a weakening.
- 9. Logging: each use of a simulated clock logs one WARNING containing the request_id and
-    the simulated time, and not the key.
- 10. The OverflowError -> 400 handler stays as a safety net. Add a test showing that no
-     request that carries a clock can reach it (a clock within the window never overflows).
- In every looped test, put the case in the assertion message.
-
-STEP B — IMPLEMENT
- - A named constant TEST_CLOCK_MAX_OFFSET = timedelta(days=90) in core/clock.py with a short
-   comment on why. Compute "real now" once per request from the system clock.
- - Validate the clock header in ONE place, before any service or database work: parse
-   ISO-8601 with an explicit timezone, convert to UTC, check the window. Wrong format or
-   outside the window -> 422 INVALID_TEST_CLOCK with a useful message that names the allowed
-   range, for example "X-Test-Clock must be within 90 days of the server time."
- - Disabled -> 403 TEST_CLOCK_DISABLED. Missing or wrong key -> 403 TEST_CLOCK_UNAUTHORIZED.
- - Settings: fail fast at startup as in test 5; production default as in test 5.
-   Update .env.example with ALLOW_TEST_CLOCK and TEST_CLOCK_KEY and comments (no real key).
- - The clock lives in request scope (request.state or a contextvar that is reset after the
-   request). No module-level mutable state.
- - Add X-Clock-Mode: test and the CORS expose_headers.
- - Do not change any rule that uses the time. Services keep receiving "now" as before.
-
-STEP C — VERIFY
- 1. The Step A tests are green; the whole existing suite is green; paste summary lines,
-    skipped count and duration.
- 2. Replay Step 0 a and b on the fixed code: the 9999 and 0001 requests must be 422, and the
-    follow-up requests must behave normally. Paste the raw results and the database counts.
- 3. Start the API with APP_ENV=production, ALLOW_TEST_CLOCK=true and no TEST_CLOCK_KEY, and
-    paste the exact startup output and the exit status. Then start with a 16+ character
-    placeholder key and show GET /health.
- 4. Reseed the dev database, stop the API process, then: ruff check . ; ruff format --check . ;
-    full pytest -q -rs ; git status -sb ; git diff --stat.
- 5. Build four cumulative temp trees from a git archive of HEAD plus the working-tree files
-    of each suggested commit (tests commit last) and run import, ruff and the full pytest
-    in each, as in Fix 1c. Paste the summary lines.
- 6. Suggested commits (Conventional Commits with [M3]), subject length of each computed with
-    PowerShell .Length and printed (must be 72 or less), with a 1 to 3 line body explaining
-    WHY. Suggested subjects (use as given if the length check passes):
-      fix(api): [M3] validate test clock window and reject extreme times
-      fix(api): [M3] require a key to enable the test clock in production
-      feat(api): [M3] expose clock state in /health and X-Clock-Mode header
-      test(api): [M3] cover test clock window, key and request scoping
-    Give the exact git add paths for each and verify each one on its own as in item 5.
-
+M4 — BACKEND FIX 2: TEST CLOCK HARDENING. INVESTIGATE FIRST, THEN TESTS, THEN FIX.
+
+
+
+Scope guard:
+
+- Backend only. Allowed edits: backend/app/core/clock.py, backend/app/core/config.py,
+
+  backend/app/core/middleware.py, backend/app/main.py, backend/app/api/errors.py,
+
+  backend/app/api/routers/health.py, backend/app/schemas/* (only for the health response),
+
+  backend/tests/**, .env.example (variables only).
+
+- Do NOT edit services, models, migrations, PROMPTS.md, README.md, SUBMISSION.md or
+
+  anything in frontend/. Do NOT change business rules.
+
+- No git writes (add, commit, push, pull, reset, checkout, clean, stash). I commit myself.
+
+- Paste RAW output only; never retype or reformat it. If output is long, paste the first
+
+  and last 15 lines and say how many lines you omitted. Do not print any "GOAL_COMPLETE" or
+
+  similar marker. Report only commands you actually ran.
+
+- Every pytest run uses the local PostgreSQL (DATABASE_URL set) with -rs. Skipped must be 0.
+
+- Run ruff on the whole backend: ruff check . ; ruff format --check .
+
+
+
+Decisions already approved (do not re-debate):
+
+ - The clock is disabled by default. APP_ENV unset means production.
+
+ - It may be enabled in production only with a key. The app must refuse to start otherwise.
+
+ - It is request-scoped, never global.
+
+ - A simulated time must be visible to clients.
+
+ - Window: the simulated time must be within 90 days of the real server time, before or after.
+
+
+
+STEP 0 — INVESTIGATION (no code changes). With the current code, dev settings
+
+(ALLOW_TEST_CLOCK=true, TEST_CLOCK_KEY=local-dev-clock-key-123456), from a freshly seeded DB:
+
+ a. Create member M1 and item I1. POST /loans/reserve {M1, I1} with
+
+    X-Test-Clock 9999-12-31T00:00:00Z. Raw status and body. Note the loan id L.
+
+ b. WITHOUT any clock header, run each and paste status and body:
+
+    GET /loans/L ; GET /items/I1 ; GET /items?status=RESERVED ; GET /members/M1 ;
+
+    GET /members/M1/statement ; GET /loans?item_id=I1 ; GET /loans/overdue ;
+
+    POST /loans/reserve {M2, I1} (M2 is a fresh member) ;
+
+    POST /loans/reserve {M1, I_other} (I_other is a fresh item) ;
+
+    POST /loans/L/checkout ; POST /loans/L/cancel ;
+
+    POST /items/I1/maintenance.
+
+ c. Print the stored row from the database: id, status, reserved_at for loan L.
+
+ d. In one sentence each: (1) can the item I1 still be reserved by anyone? (2) can member M1
+
+    still reserve other items? (3) can the loan be cancelled or checked out in real time?
+
+ e. Repeat a and b with a fresh member and item for X-Test-Clock 0001-01-01T00:00:00Z,
+
+    including POST /loans/{id}/checkout and /cancel without a header if a loan was created.
+
+ f. Explain how the clock is made available to code: which file and line reads the header,
+
+    which object holds the value (contextvar, request.state, a module-level variable?), and
+
+    whether two simultaneous requests with different clocks could see each other's value.
+
+ g. Print the current logic for "enabled" (config.py and clock.py): what happens when
+
+    APP_ENV=production and ALLOW_TEST_CLOCK=true, with and without TEST_CLOCK_KEY?
+
+ Reseed the dev database when finished (alembic downgrade base; alembic upgrade head;
+
+ python -m scripts.seed).
+
+
+
+STEP A — WRITE FAILING TESTS FIRST: backend/tests/api/test_test_clock.py
+
+(plus unit tests in backend/tests/unit/ for settings validation). Run them BEFORE the fix
+
+and paste the failing ids. Cases:
+
+ 1. Window: with the key, a clock at real_now +90d is accepted, +90d+1s is rejected,
+
+    -90d is accepted, -90d-1s is rejected; also 9999-12-31, 0001-01-01, naive timestamps
+
+    (no timezone), "2026-13-45T00:00:00Z", "", "abc", a 5000-character string, a value
+
+    with a trailing space. Every rejection must be HTTP 422 with code INVALID_TEST_CLOCK
+
+    and the standard error envelope, AND the database must be unchanged (loan, item and
+
+    member row counts) after a rejected WRITE such as POST /loans/reserve.
+
+ 2. Wedge regression: after any rejected clock, a normal request without a clock header
+
+    must work exactly as before (reserve, cancel, return all succeed).
+
+ 3. Disabled (default): ALLOW_TEST_CLOCK unset or false and an X-Test-Clock header present
+
+    -> 403 TEST_CLOCK_DISABLED (not ignored). No header -> normal.
+
+ 4. Authorization when enabled: missing key -> 403 TEST_CLOCK_UNAUTHORIZED; wrong key ->
+
+    403 TEST_CLOCK_UNAUTHORIZED; correct key -> 200. The response body must never contain
+
+    the configured key, and the key must never appear in captured log records (use caplog).
+
+    Compare keys with hmac.compare_digest.
+
+ 5. Startup rules (unit tests of the settings or app-factory function, no server needed):
+
+    APP_ENV unset -> treated as production. production + ALLOW_TEST_CLOCK=true + no key ->
+
+    startup fails with a clear error; key shorter than 16 characters -> startup fails; key of
+
+    16 or more characters -> starts. development or test + enabled + no key -> starts.
+
+    production + ALLOW_TEST_CLOCK unset -> starts, clock disabled.
+
+    Today production silently forces the clock off: replace that with the fail-fast
+
+    behaviour above.
+
+ 6. Request scoping: two threads (threading.Barrier) send GET /loans/overdue at the same time
+
+    with different valid clocks and one with none; each response must reflect only its own
+
+    clock (use data that differs by clock). After they finish, a plain request uses real time.
+
+ 7. Visibility: every response produced while a simulated clock is in effect has the header
+
+    X-Clock-Mode: test, including error responses (for example a 404 with a valid clock).
+
+    Responses without a simulated clock do not have it. The CORS configuration exposes
+
+    X-Clock-Mode and X-Request-ID (expose_headers) so a browser can read them: assert it with
+
+    a request that has an Origin header.
+
+ 8. /health returns {"status": "ok", "test_clock_enabled": <bool>} and never any secret.
+
+    Update the existing health tests to this new contract and list in your report each test
+
+    you changed and why. This is an intentional contract change, not a weakening.
+
+ 9. Logging: each use of a simulated clock logs one WARNING containing the request_id and
+
+    the simulated time, and not the key.
+
+ 10. The OverflowError -> 400 handler stays as a safety net. Add a test showing that no
+
+     request that carries a clock can reach it (a clock within the window never overflows).
+
+ In every looped test, put the case in the assertion message.
+
+
+
+STEP B — IMPLEMENT
+
+ - A named constant TEST_CLOCK_MAX_OFFSET = timedelta(days=90) in core/clock.py with a short
+
+   comment on why. Compute "real now" once per request from the system clock.
+
+ - Validate the clock header in ONE place, before any service or database work: parse
+
+   ISO-8601 with an explicit timezone, convert to UTC, check the window. Wrong format or
+
+   outside the window -> 422 INVALID_TEST_CLOCK with a useful message that names the allowed
+
+   range, for example "X-Test-Clock must be within 90 days of the server time."
+
+ - Disabled -> 403 TEST_CLOCK_DISABLED. Missing or wrong key -> 403 TEST_CLOCK_UNAUTHORIZED.
+
+ - Settings: fail fast at startup as in test 5; production default as in test 5.
+
+   Update .env.example with ALLOW_TEST_CLOCK and TEST_CLOCK_KEY and comments (no real key).
+
+ - The clock lives in request scope (request.state or a contextvar that is reset after the
+
+   request). No module-level mutable state.
+
+ - Add X-Clock-Mode: test and the CORS expose_headers.
+
+ - Do not change any rule that uses the time. Services keep receiving "now" as before.
+
+
+
+STEP C — VERIFY
+
+ 1. The Step A tests are green; the whole existing suite is green; paste summary lines,
+
+    skipped count and duration.
+
+ 2. Replay Step 0 a and b on the fixed code: the 9999 and 0001 requests must be 422, and the
+
+    follow-up requests must behave normally. Paste the raw results and the database counts.
+
+ 3. Start the API with APP_ENV=production, ALLOW_TEST_CLOCK=true and no TEST_CLOCK_KEY, and
+
+    paste the exact startup output and the exit status. Then start with a 16+ character
+
+    placeholder key and show GET /health.
+
+ 4. Reseed the dev database, stop the API process, then: ruff check . ; ruff format --check . ;
+
+    full pytest -q -rs ; git status -sb ; git diff --stat.
+
+ 5. Build four cumulative temp trees from a git archive of HEAD plus the working-tree files
+
+    of each suggested commit (tests commit last) and run import, ruff and the full pytest
+
+    in each, as in Fix 1c. Paste the summary lines.
+
+ 6. Suggested commits (Conventional Commits with [M3]), subject length of each computed with
+
+    PowerShell .Length and printed (must be 72 or less), with a 1 to 3 line body explaining
+
+    WHY. Suggested subjects (use as given if the length check passes):
+
+      fix(api): [M3] validate test clock window and reject extreme times
+
+      fix(api): [M3] require a key to enable the test clock in production
+
+      feat(api): [M3] expose clock state in /health and X-Clock-Mode header
+
+      test(api): [M3] cover test clock window, key and request scoping
+
+    Give the exact git add paths for each and verify each one on its own as in item 5.
+
+
+
 Stop after the report. Do not start Fix 3.
 
 </details>
@@ -3568,5 +4129,354 @@ The earlier audit found that DELETE endpoints for members and items were missing
 11. Do not commit or push.
 
 Before finishing, report the exact endpoints added or confirmed, deletion rules, changed files, test results, coverage if run, prompt-entry number, and `git status`. Stop and wait for my review before starting another task.
+
+</details>
+
+## Entry 52
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-21
+- **Prompt:** Audit the existing frontend before implementing new features — read-only. Inspect frontend configuration, dependencies, routes, components, and styling approach. Check implemented, partial, or missing features against assignment requirements (catalogue, member management, loan checkout/returns, statements, payments, and reviewer test-clock controls). Verify backend API integration points, contracts, data types, and security rules. Recommend implementation order and frontend test setup.
+- **Answer:** Performed a comprehensive read-only audit of `frontend/package.json`, `frontend/vite.config.ts`, `frontend/tsconfig.json`, `frontend/src/App.tsx`, `frontend/src/main.tsx`, and `frontend/src/styles.css`. Identified that the starter frontend only implemented a `/health` ping without any equipment catalog, member management, loan checkout/returns, or payment screens. Documented actual backend contracts, integer paise monetary representation, IST timestamp formatting, test-clock header constraints, and absence of automated frontend testing. Recommended establishing a typed API client, currency/datetime utilities, and native Node.js test runner before building the item catalogue.
+- **What I did:** Inspected the frontend architecture, verified all backend REST contracts and schemas, documented the feature gap matrix across all 6 problem requirements, evaluated testing infrastructure, and recommended an incremental, test-driven implementation plan with zero repository writes.
+- **Files changed:** None (read-only audit).
+
+<details>
+<summary>Full prompt text (Entry 52)</summary>
+
+**Task: Audit the existing frontend before implementing new features — read-only**
+
+We are working on the KJBN Labs Software Engineering Internship Take-Home, Problem 1: Equipment Rental Desk.
+
+The backend has implemented REST APIs, business rules, validation, and tests. The next priority is completing the frontend. First, inspect the existing frontend and report its current state. Do not modify any files.
+
+### 1. Inspect the frontend
+- Identify the frontend framework, folder structure, routes, components, styling approach, and API client configuration.
+- Inspect `package.json`, Vite configuration, TypeScript configuration, and environment-variable usage.
+- Identify which screens and workflows are implemented, partially implemented, or missing.
+- Check whether the frontend currently connects to the real backend or uses mock/hardcoded data.
+
+### 2. Compare against the assignment
+Check the frontend against these requirements:
+- Item catalogue with status filtering and search.
+- Member management with eligibility checks.
+- Loan checkout and return workflows.
+- Member statements and payment recording.
+- Reviewer test-clock controls and visibility.
+- Error handling for API errors and business-rule violations.
+
+For each requirement, report **Implemented**, **Partial**, or **Missing**, with evidence from the actual files.
+
+### 3. Check backend integration
+Inspect the actual backend routes and schemas before recommending integration. Identify the endpoints, request fields, response shapes, and error formats needed by each frontend workflow. Do not guess endpoint names or payloads.
+
+### 4. Recommend the implementation order
+Suggest small, testable frontend milestones. Start with the smallest useful feature that can connect to the existing backend, then build incrementally.
+
+### Constraints
+- Read-only: do not edit, create, delete, stage, commit, or push files.
+- Do not run commands that alter the project.
+- Do not redesign or replace the existing frontend before understanding it.
+- Report findings with exact file paths and relevant component/API names.
+
+Return a concise audit report, a requirement-status table, and the recommended first implementation task.
+
+</details>
+
+## Entry 53
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-21
+- **Prompt:** Implement the frontend API foundation — typed API client and utilities. Inspect backend contracts, schemas, and routes. Create accurate TypeScript types in `frontend/src/api/types.ts` for items, members, loans, payments, statements, and standard API errors. Implement typed API client in `frontend/src/api/client.ts` with error envelope parsing (`ApiClientError`), 204 No Content handling, reviewer test-clock header support (`X-Test-Clock`, `X-Test-Clock-Key`), and full endpoint coverage. Implement monetary utilities (`formatPaise`, `parseRupeesToPaise`), IST timestamp formatter (`formatUtcToIst`), and query string builder in `frontend/src/api/utils.ts`. Configure native Node.js test runner in `package.json` and add comprehensive unit tests in `frontend/tests/utils.test.ts` and `frontend/tests/client.test.ts`. Verify with `npm test`, `npm run typecheck`, and `npm run build`.
+- **Answer:** Created `frontend/src/api/types.ts` defining all models, enums (`ItemStatus`, `MemberStatus`, `LoanStatus`), query parameters, and error types. Implemented `frontend/src/api/utils.ts` for exact integer paise currency formatting, parsing, IST date formatting, and safe query parameter serialization. Implemented typed HTTP client in `frontend/src/api/client.ts` with base URL resolution, reviewer test-clock support, structured `ApiClientError` class, and complete typed methods for items, members, loans, payments, and health. Added test script in `frontend/package.json` leveraging Node.js native test runner (`node --experimental-strip-types --test`) with 11 automated unit tests. All tests passed, TypeScript typecheck passed with zero errors, and Vite production build succeeded.
+- **What I did:** Implemented the typed API foundation, TypeScript models, currency and date utilities, and automated unit test suite matching backend Pydantic schemas and business rules without modifying backend code or adding large third-party dependencies.
+- **Files changed:** `frontend/package.json`, `frontend/src/api/types.ts`, `frontend/src/api/utils.ts`, `frontend/src/api/client.ts`, `frontend/tests/utils.test.ts`, and `frontend/tests/client.test.ts`.
+
+<details>
+<summary>Full prompt text (Entry 53)</summary>
+
+**Task: Implement the frontend API foundation — typed API client and utilities**
+
+We are building the KJBN Labs Equipment Rental Desk using the existing React + TypeScript + Vite frontend and FastAPI backend.
+
+The frontend audit is complete. Implement only the API foundation described below. Do not build the item or member screens yet.
+
+### 1. Inspect the actual backend contracts first
+
+Before writing TypeScript types or API methods, inspect the existing backend:
+- Pydantic schemas and response models.
+- API routers and their registered paths.
+- Request body fields, query parameters, status codes, and error response formats.
+- Money representation and timestamp formats.
+- The `X-Test-Clock` validation and security rules.
+
+Use the real implementation as the source of truth. Do not assume that the earlier audit's example response shapes are exact.
+
+### 2. Create accurate TypeScript types
+
+Organize types in a suitable file under `frontend/src/api/` for:
+- Items
+- Members
+- Loans
+- Payments
+- Member statements
+- Standard API errors
+
+Match the backend's actual field names, optional fields, enum values, and money units. Do not use `any` to avoid type errors.
+
+### 3. Extend the API client
+
+Update `frontend/src/api/client.ts` while preserving the existing health-check functionality.
+
+Implement typed functions for the existing endpoints that will be needed by the UI:
+- Fetch items with search, category, status, and pagination parameters.
+- Create, delete, and manage item maintenance status.
+- Fetch, create, suspend, reinstate, and delete members.
+- Fetch a member statement and record a payment.
+- Reserve, check out, return, and cancel a loan.
+- Fetch overdue loans.
+
+Requirements:
+- Use the existing `VITE_API_BASE_URL` configuration.
+- Keep API paths and query parameters accurate.
+- Set `Content-Type: application/json` when sending JSON bodies.
+- Handle `204 No Content` responses without trying to parse JSON.
+- Parse the backend's structured error response and throw a typed `ApiClientError` containing the error code, detail, and status.
+- Allow request cancellation using `AbortSignal`.
+
+### 4. Currency and date utilities
+
+Create utilities for:
+- Converting between the backend's money unit and the user-facing display.
+- Formatting ISO-8601 UTC timestamps into the local timezone (Asia/Kolkata / IST).
+- Formatting date-only displays where appropriate.
+
+Do not use floating-point arithmetic for money calculations.
+
+### 5. Reviewer test-clock support in the client
+
+The backend supports an optional `X-Test-Clock` header for reviewer testing.
+
+Add optional test-clock support to the API client:
+- Allow passing a test-clock value when making a request.
+- If a test-clock key is configured for development/testing, send it in `X-Test-Clock-Key`.
+- Do not inject a test-clock value into every request by default.
+- Do not hardcode a future timestamp.
+- Keep ordinary requests working without this header.
+- Do not weaken or modify backend clock validation or security.
+
+The interactive clock controls will be implemented later.
+
+### 6. Tests and quality checks
+
+Add or update frontend tests for the API client and utilities using the testing tools already installed. If no test framework is configured, report that before adding a new dependency; do not install a large testing stack unnecessarily.
+
+Cover at least:
+- Query parameter encoding.
+- Successful JSON responses.
+- `204 No Content`.
+- Structured API errors.
+- Network failures.
+- Currency and IST timestamp formatting.
+- Optional test-clock header behavior.
+
+Run the available frontend checks, including the production build and tests.
+
+### Constraints
+
+- Modify only files under `frontend/` and the frontend dependency lockfile if a justified dependency change is required.
+- Do not modify backend code, business rules, database migrations, README, SUBMISSION.md, or unrelated files.
+- Do not commit or push.
+- Keep TypeScript strict and the implementation understandable.
+- Do not claim a check passed unless you actually ran it.
+
+### Final report
+
+List the files changed, the actual backend contracts verified, tests and build results, and any unresolved issues. Stop after completing this task.
+
+</details>
+
+## Entry 54
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-21
+- **Prompt:** Build the Item Catalogue screen using the existing typed API client. Replace the health-check starter in `frontend/src/App.tsx` with an item catalogue connected to the FastAPI backend. Implement page header, search input querying name/category with backend `q` parameter, dynamic category filter populated from available item data, status filter matching backend enum values (`AVAILABLE`, `RESERVED`, `CHECKED_OUT`, `UNDER_MAINTENANCE`), result count indicator, responsive table/card layout, pagination with backend `limit` and `offset`, manual refresh action, and comprehensive UI states (initial loading, empty catalogue, no matches, and error handling with `ApiClientError` details). Improve `frontend/src/styles.css` with a polished internal equipment-management aesthetic, accessible focus, color-coded status badges, and responsive behavior. Verify with `npm test`, `npm run typecheck`, and `npm run build`.
+- **Answer:** Implemented the full Item Catalogue screen in `frontend/src/App.tsx` using `fetchItems` and `formatPaise`. Added debounced search (300ms) with clear button, dynamic category dropdown filter populated from available item data, status dropdown filter with exact backend enum values, result counter, responsive table layout with item ID, name, category pill, status badge, replacement value, and condition notes, pagination with Previous/Next controls and page indicators, manual refresh button with spinning indicator, and AbortController request cancellation to prevent stale responses. Designed `frontend/src/styles.css` with accessible focus rings, distinguishable status badge color schemes, responsive table scrolling, and clean state panels for loading, errors, empty catalogue, and zero search matches. Verified with `npm test` (11/11 passed), `npm run typecheck` (0 errors), and `npm run build` (production build succeeded).
+- **What I did:** Implemented the Item Catalogue application feature in `frontend/src/App.tsx` and polished styles in `frontend/src/styles.css` using the typed API client, handling all loading, error, empty, and pagination states without modifying backend files or API contracts.
+- **Files changed:** `frontend/src/App.tsx` and `frontend/src/styles.css`.
+
+<details>
+<summary>Full prompt text (Entry 54)</summary>
+
+**Task: Build the Item Catalogue screen using the existing typed API client**
+
+We are implementing the frontend for KJBN Labs' Equipment Rental Desk assignment. The typed API foundation has been implemented in `frontend/src/api/`, and the reported checks are passing.
+
+Build the first real application feature: an item catalogue connected to the actual FastAPI backend.
+
+### 1. Inspect before editing
+
+Read:
+- `frontend/src/App.tsx`
+- `frontend/src/styles.css`
+- `frontend/src/api/client.ts`
+- `frontend/src/api/types.ts`
+- `frontend/src/api/utils.ts`
+- The backend item router and schemas.
+
+Use the existing API functions and types. Verify their actual exported names and response fields before integrating them.
+
+### 2. Implement the item catalogue
+
+Replace the current health-check-only screen in `App.tsx` with an item catalogue that includes:
+
+- A clear page title and short description.
+- A search input that searches item name/category using the backend's `q` parameter.
+- A category filter populated from available item data, with an option to show all categories.
+- A status filter using the exact backend-supported item status values.
+- A visible item count for the currently displayed results.
+- A responsive table or card layout displaying item name, category, status, replacement value, and condition note.
+- Pagination using the backend's supported `limit` and `offset` parameters, if appropriate for the current API response.
+- A refresh action to reload the catalogue.
+
+Display money using the existing currency utility and the backend's actual money unit. Display status values as readable badges without changing the values sent to the backend.
+
+### 3. Handle every UI state
+
+Implement clear, user-friendly states for:
+- Initial loading.
+- Successful results.
+- No items in the catalogue.
+- No matches for the current search or filters.
+- API errors, including the useful message from `ApiClientError`.
+- Refreshing the list without unnecessary duplicate requests.
+
+Avoid stale responses overwriting newer search results. Clean up any timers or request cancellation handlers if you introduce them.
+
+### 4. Styling
+
+Improve `frontend/src/styles.css` enough to make the catalogue look like a polished internal equipment-management application.
+
+Use:
+- A clean, readable layout.
+- Consistent spacing, typography, and neutral colors.
+- Clearly distinguishable status badges.
+- Accessible form labels and visible keyboard focus.
+- Responsive behavior for smaller screens.
+- Clear disabled states for pagination and refresh controls.
+
+Do not add a UI framework or large dependencies. Do not build a complicated dashboard or introduce routing yet.
+
+### 5. API and security requirements
+
+- Use the existing `VITE_API_BASE_URL` and typed API client.
+- Do not use mock or hardcoded item records.
+- Do not change backend files or business rules.
+- Do not expose reviewer clock controls or clock-key configuration in this task.
+- Do not send `X-Test-Clock` or `X-Test-Clock-Key` unless explicitly configured for a permitted reviewer/testing workflow.
+- Keep API errors visible and understandable to the user.
+
+### 6. Verify the implementation
+
+Run:
+- `npm test`
+- `npm run typecheck`
+- `npm run build`
+
+If practical, start the frontend and verify the catalogue against the running backend. If the backend is unavailable, report that limitation instead of claiming the live integration was verified.
+
+### Constraints
+
+- Modify only `frontend/src/App.tsx` and `frontend/src/styles.css`, unless a small additional frontend component is genuinely necessary.
+- Do not change API contracts or backend files.
+- Preserve the existing API foundation and tests.
+- Do not edit `README.md` or `SUBMISSION.md`.
+- Do not commit or push.
+- Keep the code understandable and suitable for explaining in an internship review.
+
+### Final report
+
+Report the files changed, the catalogue features implemented, the checks and their actual results, and any integration issues. Stop after this task.
+
+</details>
+## Entry 55
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-21
+- **Prompt:** Add item creation and maintenance actions to the Equipment Rental Desk frontend. Inspect backend schemas and routes for `POST /items`, `POST /items/{id}/maintenance`, and `POST /items/{id}/restore-maintenance`. Add visible "Add Item" button and accessible creation modal form with validation (name, category, replacement value in rupees converted to integer paise without floats, optional condition note). Add maintenance action buttons to catalogue table for available items ("Set Maintenance") and items under maintenance ("Restore Service"), while locking actions for reserved or checked-out items. Add unit tests for form validation and state transitions, and run verification (`npm test`, `npm run typecheck`, `npm run build`, `git diff --check`).
+- **Answer:** Implemented `validateItemForm` and `isMaintenanceActionAllowed` in `frontend/src/api/utils.ts`. Integrated `createItem`, `setItemMaintenance`, and `restoreItemMaintenance` in `frontend/src/App.tsx`. Added "+ Add Item" modal with autofocus, Escape-key dismissal, validation error presentation, rupees-to-paise conversion, and API error alerts. Added maintenance action buttons in the catalogue table with per-item loading states, action-locking on loaned items, and notification banners with auto-dismiss. Added 3 comprehensive unit test suites in `frontend/tests/utils.test.ts` (14/14 tests passing). TypeScript typecheck passed with 0 errors and production build succeeded.
+- **What I did:** Implemented equipment item creation and status-based maintenance actions in the frontend with comprehensive validation, exact integer currency handling, accessible dialogs, and test coverage, appending Entry 55 to `PROMPTS.md`.
+- **Files changed:** `frontend/src/App.tsx`, `frontend/src/api/utils.ts`, `frontend/src/styles.css`, `frontend/tests/utils.test.ts`, and `PROMPTS.md`.
+
+<details>
+<summary>Full prompt text (Entry 55)</summary>
+
+**Task: Add item creation and maintenance actions to the Equipment Rental Desk frontend**
+
+The item catalogue is implemented in `frontend/src/App.tsx` and styled in `frontend/src/styles.css`. The typed API client is available under `frontend/src/api/`.
+
+Implement the next incremental feature: creating items and managing item maintenance.
+
+### 1. Inspect first
+- Review the current item catalogue UI and existing API client/types.
+- Verify the actual backend schemas and behavior for `POST /items`, `POST /items/{id}/maintenance`, and `POST /items/{id}/restore-maintenance`.
+- Confirm the exact accepted status values, request fields, validation rules, and error responses.
+- Reuse the existing client methods rather than duplicating HTTP requests.
+
+### 2. Create Item action
+Add a clearly visible **Add Item** button to the catalogue.
+
+When clicked, show an accessible form in a modal or an inline panel with:
+- Item name
+- Category
+- Replacement value in rupees
+- Optional condition note
+
+Requirements:
+- Validate required fields and sensible input limits.
+- Convert rupees to integer paise using the existing utility before sending the request.
+- Reject invalid, negative, or unsupported monetary values; do not use floating-point arithmetic for business calculations.
+- Show field validation errors and backend errors clearly.
+- Disable submission while the request is in progress.
+- On success, close or reset the form, show a success message, and refresh the catalogue.
+- Support cancellation without creating an item.
+
+### 3. Maintenance actions
+For each item, show an appropriate action based on its current status:
+- Available items: allow marking them as under maintenance.
+- Items under maintenance: allow restoring them to service.
+- Reserved or checked-out items: do not show inappropriate maintenance actions.
+
+Use the existing typed API methods and verify the backend rules before implementing. Disable the relevant action while the request is running. Show success/error feedback and refresh the catalogue after success.
+
+Do not assume the action will succeed: the backend remains the source of truth and may reject invalid state transitions.
+
+### 4. User experience
+- Keep the existing search, category/status filters, pagination, and refresh behavior working.
+- Prevent duplicate submissions and stale requests.
+- Add clear accessible labels, keyboard focus behavior, and visible loading/disabled states.
+- Match the existing design rather than redesigning the whole application.
+- Ensure the layout remains usable on small screens.
+
+### 5. Testing and verification
+Add tests for the new form validation and any reusable behavior that can be tested without a live backend. Follow the existing frontend testing approach and do not add a large dependency just for these tests.
+
+Run:
+- `npm test`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
+Report actual results. If practical, manually verify create and maintenance actions against the running backend; otherwise, clearly state that live integration was not verified.
+
+### Constraints
+- Keep changes focused on item creation and maintenance.
+- Do not modify backend code, database migrations, API contracts, README, or SUBMISSION.md.
+- Update `PROMPTS.md` with a new entry after the task, preserving all existing entries.
+- Do not commit or push.
+- Do not claim checks passed unless they were run.
+
+### Final report
+List changed files, the implemented actions, tests/build results, and any unresolved issues. Stop after this task.
 
 </details>
