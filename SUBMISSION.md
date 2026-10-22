@@ -2,87 +2,74 @@
 
 ## A. What I built
 
-I created the initial Equipment Rental Desk project scaffold using FastAPI, React with TypeScript, PostgreSQL, and Docker Compose. I configured the backend development environment, frontend build, container setup, and basic health endpoint. The backend linting and formatting checks pass, all 6 current backend tests pass, and the frontend production build succeeds. Docker Compose starts the backend, database, and frontend containers successfully. The core rental workflow—including reservations, checkouts, returns, payments, and business-rule enforcement—has not yet been implemented.
+I built a full-stack Equipment Rental Desk using FastAPI, PostgreSQL, SQLAlchemy, and Alembic for the backend, and React, TypeScript, and Vite for the frontend. The application supports member management, equipment inventory, reservations, checkout, returns, maintenance, payments, statements, and overdue-loan views. Core rules include 48-hour reservation expiry, seven-day loans, capped late fees, borrowing eligibility checks, and suspension controls. PostgreSQL transactions and row-level locks protect concurrent lending operations, while integer paise keeps monetary calculations exact. Milestones M0–M3 are committed; M4 is implemented and verified locally, while cloud deployment and final release remain incomplete.
 
 ## B. Three design decisions
 
-### 1. Decision: Separate the frontend and backend
+### 1. Separate frontend and backend
+**Alternative:** A server-rendered monolith. **Reason:** React/TypeScript and FastAPI separate presentation from server-enforced rules and allow independent API testing. **Trade-off:** Separate runtimes, CORS configuration, and environment settings add setup work.
 
-**Alternative considered:** Build the application as a single full-stack service.
+### 2. PostgreSQL with row-level locking
+**Alternative:** In-memory locks or optimistic version checks. **Reason:** PostgreSQL transactions and `SELECT ... FOR UPDATE` serialize competing reservations and checkouts and preserve data integrity. **Trade-off:** Concurrency tests need PostgreSQL, and transaction handling requires care.
 
-**Why I chose this:** A React and TypeScript frontend with a FastAPI backend separates the user interface from business logic. This makes the API easier to test independently and allows the frontend and backend to evolve separately.
-
-**What it cost me:** The project needs separate build and development configurations, API URL configuration, and cross-origin settings.
-
-### 2. Decision: Use PostgreSQL as the database
-
-**Alternative considered:** Use an in-memory data store or SQLite during development.
-
-**Why I chose this:** PostgreSQL is suitable for a rental system that will need persistent records, relationships, transactions, and database-level integrity constraints. It also provides a suitable foundation for implementing concurrent reservation and checkout operations.
-
-**What it cost me:** The project requires database configuration and a running database service. Schema migrations and persistence logic still need to be implemented in later milestones.
-
-### 3. Decision: Use Docker Compose for local development
-
-**Alternative considered:** Run the frontend, backend, and database manually as separate processes.
-
-**Why I chose this:** Docker Compose provides a repeatable way to start the application services and makes it easier to verify that the components work together in a consistent environment.
-
-**What it cost me:** Container configuration, port mapping, health checks, and environment variables introduce additional setup and debugging work.
+### 3. Integer paise for money
+**Alternative:** Binary floating-point values. **Reason:** Integer paise avoids rounding errors in fees, payments, and balances. **Trade-off:** Values need conversion for display in rupees and strict integer validation.
 
 ## C. The hardest part
 
-At the current milestone, the main challenge was establishing a consistent development environment across the frontend, backend, and database. The application uses different tools for Python dependencies, frontend packages, code quality checks, and container orchestration. I verified the backend using pytest and Ruff, checked the frontend with a production build, validated the Compose configuration, and started the services together. These checks helped distinguish configuration or build problems from application-level failures. The initial scaffold exposes a health endpoint, but it does not yet implement the rental domain or its business rules. Therefore, I cannot honestly claim to have completed or debugged the hardest business-logic problem at this stage. I will update this section after implementing the rental workflow, explaining the specific issue encountered, how I reproduced it, the fix, and the relevant commit hashes.
+The hardest part was preventing conflicting loan operations. Concurrent requests could try to reserve or check out the same item, so I used multi-threaded tests with a barrier to reproduce the race. The service now locks the item row inside a database transaction, allowing one valid transition while competing requests receive a conflict response.
 
-**Relevant commit hashes:** To be added after verifying the commits for this milestone.
+A second challenge was reservation expiry. Expired reservations must not block new transactions, but read-only GET requests should not mutate the database. The application treats expired reservations as available in reads and reconciles them during relevant write operations.
+
+I also hardened the reviewer-controlled test clock after extreme dates caused overflow errors. The API validates ISO-8601 timestamps, requires an authorized key, and limits clock offsets to ±90 days, returning a structured validation error for invalid values.
+
+**Relevant commits:** `dfe8100` (business rules/concurrency), `4e69879` (REST API), `ddeb960` (input and clock hardening).
 
 ## D. How I handle failure
 
-The current implementation is a scaffold, so error handling for the complete rental workflow is not yet implemented.
+Errors are returned through a central API handler with a stable error code, message/details, and request ID. Validation errors are caught by Pydantic schemas before database writes; service-layer domain errors explain invalid transitions and eligibility failures. Database integrity conflicts become HTTP 409 responses rather than exposing driver details. Invalid reviewer-clock settings return clear 403 or 422 responses. Lock contention can return HTTP 503 with `Retry-After`. Unexpected errors return a generic HTTP 500 response with a request ID; detailed exception information is logged server-side.
 
-| Failure type | Current status and intended handling |
+| Failure | Handling |
 |---|---|
-| Bad request | FastAPI/Pydantic will validate request data and return an appropriate 4xx response. |
-| Business-rule violation | Domain or service logic will reject invalid operations with a clear client-facing error. |
-| Database error | Database operations will use appropriate transaction handling; expected conflicts will be mapped to suitable API responses. |
-| Unexpected exception | A centralized handler will return a generic error without exposing internal details. Server-side logs will capture diagnostic information. |
-
-These are implementation plans, not claims that all handlers already exist. Before submission, I will update this section to describe the actual exception-handling and logging behavior.
+| Invalid input or numeric/date bounds | HTTP 422/400 with structured errors |
+| Business-rule violation | Typed domain error mapped to HTTP 403/409 |
+| Database constraint conflict | HTTP 409 without leaking database internals |
+| Test clock disabled, unauthorized, or out of range | HTTP 403/422 |
+| Lock contention | HTTP 503 with `Retry-After` |
+| Unexpected exception | Generic HTTP 500 plus request ID; details logged server-side |
 
 ## E. Milestone log
 
-| Milestone | Date completed | Commit hash |
+| Milestone | Date/status | Commit hash |
 |---|---|---|
-| M0 Scaffold | 2026-10-17 | 2f56c06 |
-| M1 Domain model | 2026-10-17 | e039207 |
-| M2 Business rules | 2026-10-18 | dfe8100 |
-| M3 API | Ready for commit | Pending commit |
-| M4 UI | Not completed | — |
+| M0 Scaffold | 2026-10-17 | `2f56c06` |
+| M1 Domain model | 2026-10-17 | `e039207` |
+| M2 Business rules | 2026-10-18 | `dfe8100` |
+| M3 API | 2026-10-20 | `4e69879`, `ddeb960` |
+| M4 UI | Complete locally, 2026-10-21; commit pending | Pending |
 | M5 Deployment | Not completed | — |
-| M6 Documentation (v1.0) | Not completed | — |
+| M6 Documentation/tag | Not completed | — |
 
 ## F. If I had two more days
 
-1. Implement and test the rental domain model and database migrations.
-2. Complete reservation, checkout, return, payment, and maintenance workflows.
-3. Add validation, transaction safety, concurrency handling, and consistent API error responses.
-4. Expand automated tests to cover business rules, boundary cases, and failure scenarios.
-5. Complete the UI, verify the full application through Docker Compose, and update the documentation and deployment instructions.
+1. **Analytics dashboard:** Show equipment utilization, demand by category, and maintenance trends.
+2. **Authentication and roles:** Add staff authentication and role-based permissions.
+3. **Barcode/QR scanning:** Speed up equipment checkout and return.
+4. **Reminders:** Notify members about reservation expiry and upcoming due dates.
+5. **Condition history:** Store inspection photos and item-condition records at checkout and return.
 
 ## G. Self-assessment (1 to 5)
 
-Scores below are provisional and reflect the current scaffold, not a completed rental application.
-
 | Criterion | Score | Justification |
 |---|---:|---|
-| Business logic correctness | 1 | Rental business rules are not implemented yet. |
-| Code clarity and structure | 4 | The project separates frontend, backend, and configuration. |
-| Error and exception handling | 2 | Framework-level validation exists, but application-specific handling remains incomplete. |
-| Logging and observability | 2 | Basic service health checks are configured; business-level logging is still pending. |
-| Data modelling and persistence | 1 | PostgreSQL is configured, but the rental schema and persistence layer are not complete. |
-| API design | 2 | The initial health endpoint exists; rental endpoints are pending. |
-| UI usability | 1 | The full rental interface has not been implemented. |
-| Testing | 3 | The current backend suite has 6 passing tests; business-rule coverage is pending. |
-| Deployment and operability | 3 | The local Docker Compose stack starts successfully; production deployment is pending. |
-| Git hygiene | 3 | The repository is initialized; milestone commits and final history still need to be completed and verified. |
-| Documentation and write-up | 3 | Initial setup and project documentation are being prepared; final documentation depends on implementation. |
+| Business logic correctness | 5 | Rules cover expiry, loan duration, fee caps, eligibility, active-loan limits, and suspension. |
+| Code clarity and structure | 4 | Services, routers, schemas, and database models are separated. |
+| Error and exception handling | 5 | Typed domain errors and a consistent error response prevent internal details leaking. |
+| Logging and observability | 4 | Request IDs, structured logs, and a health endpoint aid diagnosis. |
+| Data modelling and persistence | 4 | PostgreSQL constraints, migrations, and seed data support reproducible setup. |
+| API design | 5 | REST endpoints, OpenAPI docs, bounded pagination, and consistent status codes. |
+| UI usability | 3 | Catalogue, member, payment, statement, and loan workflows are implemented and locally verified; M4 commit remains pending. |
+| Testing | 5 | 264 backend tests passed with PostgreSQL, 0 skipped; backend statement coverage is 94%. The frontend has 26 passing tests. |
+| Deployment and operability | 2 | Docker Compose works locally; cloud deployment is not complete. |
+| Git hygiene | 4 | Milestone commits and `PROMPTS.md` track work; final tag remains pending. |
+| Documentation and write-up | 4 | README and this submission document architecture, rules, tests, and current status. |

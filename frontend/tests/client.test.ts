@@ -317,3 +317,180 @@ test("API client: verified item, member, and loan operations send correct payloa
     cleanup();
   }
 });
+
+test("API client: fetchMembers and fetchItems support AbortSignal and option error propagation", async () => {
+  setBaseUrl(TEST_BASE_URL);
+
+  // 1. Abort handling
+  const controller = new AbortController();
+  controller.abort();
+
+  const cleanup = setupMockFetch((_url, init) => {
+    if (init?.signal?.aborted) {
+      const abortErr = new Error("This operation was aborted");
+      abortErr.name = "AbortError";
+      throw abortErr;
+    }
+    return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+  });
+
+  try {
+    await assert.rejects(
+      async () => {
+        await fetchMembers({ status: "ACTIVE", limit: 500 }, { signal: controller.signal });
+      },
+      (err: unknown) => {
+        return err instanceof Error && err.name === "AbortError";
+      },
+    );
+  } finally {
+    cleanup();
+  }
+
+  // 2. HTTP failure during concurrent option fetching produces ApiClientError
+  const cleanupError = setupMockFetch((url) => {
+    if (url.includes("/items")) {
+      return new Response(
+        JSON.stringify({
+          error: "Internal Server Error",
+          detail: "Database query timed out while loading items.",
+          code: "DATABASE_TIMEOUT",
+        }),
+        { status: 500, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    return new Response(JSON.stringify([{ id: 1, name: "Alice", status: "ACTIVE" }]), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  });
+
+  try {
+    await assert.rejects(
+      async () => {
+        await Promise.all([
+          fetchMembers({ status: "ACTIVE", limit: 500 }),
+          fetchItems({ status: "AVAILABLE", limit: 500 }),
+        ]);
+      },
+      (err: unknown) => {
+        return (
+          err instanceof ApiClientError &&
+          err.status === 500 &&
+          err.error === "Internal Server Error" &&
+          err.detail.includes("timed out")
+        );
+      },
+    );
+  } finally {
+    cleanupError();
+  }
+});
+
+test("API client: cancellation behavior distinguishes AbortError from NETWORK_ERROR", async () => {
+  setBaseUrl(TEST_BASE_URL);
+
+  // 1. An already-aborted AbortSignal is propagated as an AbortError immediately
+  const preAbortedController = new AbortController();
+  preAbortedController.abort();
+
+  let fetchInvoked = false;
+  const cleanup1 = setupMockFetch(() => {
+    fetchInvoked = true;
+    return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+  });
+
+  try {
+    await assert.rejects(
+      async () => {
+        await fetchItems({ status: "AVAILABLE" }, { signal: preAbortedController.signal });
+      },
+      (err: unknown) => {
+        assert.ok(err instanceof Error);
+        assert.equal(err.name, "AbortError");
+        assert.ok(!(err instanceof ApiClientError), "Aborted request must not be converted into ApiClientError");
+        return true;
+      },
+    );
+    assert.equal(fetchInvoked, false, "fetch should not be invoked when signal is already aborted");
+  } finally {
+    cleanup1();
+  }
+
+  // 2. An in-flight aborted request is not converted into an ApiClientError with NETWORK_ERROR
+  const inFlightController = new AbortController();
+  const cleanup2 = setupMockFetch(() => {
+    inFlightController.abort();
+    const abortErr = new Error("The user aborted a request.");
+    abortErr.name = "AbortError";
+    throw abortErr;
+  });
+
+  try {
+    await assert.rejects(
+      async () => {
+        await fetchMembers({ status: "ACTIVE" }, { signal: inFlightController.signal });
+      },
+      (err: unknown) => {
+        assert.ok(err instanceof Error);
+        assert.equal(err.name, "AbortError");
+        assert.ok(!(err instanceof ApiClientError), "Aborted request must not become ApiClientError");
+        return true;
+      },
+    );
+  } finally {
+    cleanup2();
+  }
+
+  // 3. Ordinary network failures still produce the expected typed ApiClientError with NETWORK_ERROR
+  const cleanup3 = setupMockFetch(() => {
+    throw new TypeError("Failed to fetch: Connection refused");
+  });
+
+  try {
+    await assert.rejects(
+      async () => {
+        await fetchItems({ status: "AVAILABLE" });
+      },
+      (err: unknown) => {
+        assert.ok(err instanceof ApiClientError);
+        assert.equal(err.status, 0);
+        assert.equal(err.code, "NETWORK_ERROR");
+        assert.equal(err.error, "Network Error");
+        assert.ok(err.detail.includes("Connection refused"));
+        return true;
+      },
+    );
+  } finally {
+    cleanup3();
+  }
+});
+
+test("API client: URL-encodes query values correctly without splitting on ampersand", async () => {
+  setBaseUrl(TEST_BASE_URL);
+  let capturedUrl = "";
+
+  const cleanup = setupMockFetch((url) => {
+    capturedUrl = url;
+    return new Response(JSON.stringify([]), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  });
+
+  try {
+    await fetchItems({ q: "drill & hammer" });
+    assert.ok(
+      capturedUrl.includes("/items?q=drill+%26+hammer") ||
+        capturedUrl.includes("/items?q=drill%20%26%20hammer"),
+      `Expected encoded query parameter in URL, got: ${capturedUrl}`,
+    );
+
+    const parsed = new URL(capturedUrl);
+    assert.equal(parsed.searchParams.get("q"), "drill & hammer");
+    assert.equal(parsed.searchParams.has("hammer"), false);
+    assert.equal(Array.from(parsed.searchParams.keys()).length, 1);
+  } finally {
+    cleanup();
+  }
+});

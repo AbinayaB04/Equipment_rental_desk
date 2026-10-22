@@ -162,6 +162,12 @@ async function request<T>(
     headers["X-Test-Clock-Key"] = activeClockKey;
   }
 
+  if (options?.signal?.aborted) {
+    const abortError = new Error("This operation was aborted");
+    abortError.name = "AbortError";
+    throw abortError;
+  }
+
   let response: Response;
   try {
     response = await fetch(url, {
@@ -171,8 +177,17 @@ async function request<T>(
       signal: options?.signal,
     });
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw error;
+    if (
+      (error instanceof Error && error.name === "AbortError") ||
+      (typeof error === "object" && error !== null && (error as { name?: string }).name === "AbortError") ||
+      Boolean(options?.signal?.aborted)
+    ) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw error;
+      }
+      const abortError = new Error("This operation was aborted");
+      abortError.name = "AbortError";
+      throw abortError;
     }
     const message = error instanceof Error ? error.message : "Network request failed.";
     throw new ApiClientError(0, {

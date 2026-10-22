@@ -4480,3 +4480,503 @@ Report actual results. If practical, manually verify create and maintenance acti
 List changed files, the implemented actions, tests/build results, and any unresolved issues. Stop after this task.
 
 </details>
+## Entry 56
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-21
+- **Prompt:** Implement Member Management in the Equipment Rental Desk Frontend. Continue working in the existing repository using React + TypeScript + Vite and the existing typed API client. Add Member Directory with member list (name, phone, status, join date in IST, outstanding fee balance in INR), status filtering (ACTIVE, SUSPENDED), pagination (limit and offset), manual refresh, loading/empty/error states. Add accessible "Add Member" modal form with validation (name 1..255 chars, phone 1..64 chars single-line per backend rules), submit via API client, disabled submit state during request, field/form error presentation, success feedback, and list refresh. Add member status actions: Suspend for active members, Reinstate for suspended members, and safe Delete with user confirmation and 409 conflict handling. Add tests for reusable member form validation. Run verification (`npm test`, `npm run typecheck`, `npm run build`, `git diff --check`). Document this task in `PROMPTS.md`.
+- **Answer:** Implemented `validateMemberForm` in `frontend/src/api/utils.ts` enforcing backend constraints (`name` 1..255 chars single-line, `phone` 1..64 chars single-line). Added tab navigation in `frontend/src/App.tsx` toggling between Equipment Catalogue and Member Directory. Implemented Member Directory UI with status filtering (`ACTIVE`, `SUSPENDED`), offset-based pagination (`PAGE_SIZE = 10`), join date in IST, running fee balance formatted in INR via `formatPaise`, and manual refresh. Added "+ Add Member" modal with autofocus, Escape-key dismissal, validation error presentation, and API error alerts. Implemented member status actions (`suspendMember`, `reinstateMember`) and safe deletion (`deleteMember`) with browser confirmation, per-row loading indicators, and informative error handling on 409 conflicts. Styled new components, table columns, balance tags, and action buttons in `frontend/src/styles.css` with dark mode and mobile responsive adjustments. Added 2 comprehensive test suites in `frontend/tests/utils.test.ts` (16/16 unit tests passing). Verified with `npm test`, `npm run typecheck`, `npm run build`, and `git diff --check`.
+- **What I did:** Implemented complete member management workflows in the frontend (member directory listing, filtering, pagination, creation, suspension, reinstatement, deletion, and validation) preserving the existing item catalogue and maintenance features, and appended Entry 56 to `PROMPTS.md`.
+- **Files changed:** `frontend/src/App.tsx`, `frontend/src/api/utils.ts`, `frontend/src/styles.css`, `frontend/tests/utils.test.ts`, and `PROMPTS.md`.
+
+<details>
+<summary>Full prompt text (Entry 56)</summary>
+
+## Task: Implement Member Management in the Equipment Rental Desk Frontend
+
+Continue working in the existing repository. Implement the next frontend feature using the current React + TypeScript + Vite structure and the existing typed API client.
+
+### 1. Inspect before editing
+- Read `frontend/src/App.tsx`, `frontend/src/api/client.ts`, `frontend/src/api/types.ts`, and `frontend/src/styles.css`.
+- Inspect the backend member router, schemas, and services to verify the exact request fields, response fields, status values, validation rules, and error codes.
+- Check existing `PROMPTS.md` entries so this task can be documented with the next entry number.
+- Reuse the existing API client and UI styles. Do not invent endpoints or use mock data.
+
+### 2. Member directory
+Add a Members section to the existing application with:
+- A member list showing name, phone, status, join date, and outstanding fee balance.
+- Status filtering using the exact backend-supported values.
+- Pagination using the API's supported `limit` and `offset` parameters.
+- A manual refresh action, loading state, empty state, and readable error state.
+- Outstanding balances displayed as INR using the existing paise formatting utility.
+- UTC timestamps/dates displayed consistently with the project's existing date/time conventions.
+
+### 3. Create member
+Add a clearly visible **Add Member** action and an accessible form or modal with:
+- Name.
+- Phone number.
+- Required-field and length validation based on the actual backend rules.
+- Submission through the existing API client.
+- Disabled submit state while the request is running.
+- Field-level or form-level error messages for validation and API failures.
+- On success, close/reset the form, show a success message, and refresh the member list.
+
+Do not assume a phone-number format stricter than the backend requires.
+
+### 4. Member status actions
+- Show **Suspend** for active members and **Reinstate** for suspended members, following the actual API status model.
+- Confirm the action when appropriate.
+- Prevent duplicate submissions while a request is running.
+- Display success or failure feedback and refresh the list after success.
+- If deletion is supported in the current UI, provide it only with clear confirmation and appropriate handling of backend conflicts. Do not add destructive actions unnecessarily.
+
+### 5. Quality and constraints
+- Keep the existing item catalogue, item creation, maintenance actions, search, filters, and pagination working.
+- Use the existing typed API client; add API client methods only if an existing verified endpoint is missing.
+- Avoid duplicated or stale asynchronous requests when filters change or the user refreshes.
+- Ensure accessible labels, keyboard interaction, visible focus indicators, and responsive layout.
+- Add tests for reusable member-form validation or other testable business-independent frontend utilities using the existing test setup.
+- Do not add a large dependency just for this feature.
+- Do not change backend business rules, database migrations, `README.md`, or `SUBMISSION.md`.
+- Append a new, complete entry to `PROMPTS.md` documenting this task and the verification results. Preserve all earlier entries.
+- Do not commit or push changes during this task.
+
+### 6. Verify
+Run from `frontend/`:
+- `npm test`
+- `npm run typecheck`
+- `npm run build`
+
+Then run `git diff --check` from the repository root.
+
+If the backend is not running, clearly report that live API integration could not be tested. Do not claim that it was tested.
+
+### 7. Report and stop
+Report:
+1. Files changed.
+2. Member features implemented.
+3. Tests, typecheck, and build results.
+4. Any unresolved issues or backend assumptions.
+
+Stop after reporting. Do not begin payments or statements yet.
+
+</details>
+
+## Entry 57
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-21
+- **Prompt:** Implement Member Statements and Fee Payments in the Equipment Rental Desk Frontend. Continue working in the existing repository. Add a "View Statement" action for each member in the Member Directory. Display a statement view / accessible modal showing the actual backend response (member identity & account details, outstanding fee balance, loan/return activity, fees assessed and payments recorded, dates, amounts in INR, notes, and transaction references). Add a "Record Payment" action in the member statement view with rupee input validation, integer paise conversion, rejection of zero/negative/malformed/unsupported-precision amounts, overpayment prevention against current outstanding balance, disabled submit state while processing, backend error presentation, success feedback, and automatic ledger/balance refresh. Add unit tests for reusable payment validation utility. Verify with `npm test`, `npm run typecheck`, `npm run build`, and `git diff --check`. Append Entry 57 to `PROMPTS.md`.
+- **Answer:** Implemented `validatePaymentForm` in `frontend/src/api/utils.ts` enforcing positive amount (> 0 paise, <= 2147483647), exact 2-decimal precision, overpayment protection against current outstanding balance (matching backend `OverpaymentError` rule), and note length limits (max 255 chars, no NUL bytes). Added `getLoanStatusBadgeClass` and `getLoanStatusLabel` in `frontend/src/App.tsx`. Added "Statement" button to Member Directory table. Implemented comprehensive Account Statement modal dialog with real-time loading, readable error states, 3 summary KPI cards (Outstanding Balance, Total Fees Assessed, Total Payments Received), expandable "Record Fee Payment" form with full-balance shortcut and overpayment guard, and tabbed activity tables for Loans & Late Fees vs Recorded Payments. Handled post-payment refresh for statement data, member directory balances, and global notifications. Styled statement modal, cards, subtabs, and payment form in `frontend/src/styles.css`. Added 2 comprehensive unit test suites in `frontend/tests/utils.test.ts` (18/18 tests passing). Verified with `npm test`, `npm run typecheck`, `npm run build`, and `git diff --check`.
+- **What I did:** Implemented complete member statements and fee payment workflows in the frontend, backed by exact integer paise currency handling, overpayment protection, responsive accessible modals, and comprehensive unit tests, appending Entry 57 to `PROMPTS.md`.
+- **Files changed:** `frontend/src/App.tsx`, `frontend/src/api/utils.ts`, `frontend/src/styles.css`, `frontend/tests/utils.test.ts`, and `PROMPTS.md`.
+
+<details>
+<summary>Full prompt text (Entry 57)</summary>
+
+## Task: Implement Member Statements and Fee Payments
+
+Continue the Equipment Rental Desk project in the existing repository.
+
+### 1. Inspect first
+- Read the current `frontend/src/App.tsx`, `frontend/src/api/client.ts`, `frontend/src/api/types.ts`, and `frontend/src/api/utils.ts`.
+- Inspect the backend member statement and payment endpoints, schemas, and services.
+- Verify the exact response fields, transaction behavior, validation limits, and error codes.
+- Reuse the existing typed API client. Do not invent endpoints or response fields.
+
+### 2. Member statement
+Add a **View Statement** action for each member in the Member Directory.
+
+When selected, display a statement view or accessible modal showing the actual backend response, including whichever of the following fields are supported:
+- Member identity and account details.
+- Outstanding fee balance.
+- Loan/return activity.
+- Fees assessed and payments recorded.
+- Dates, amounts, notes, and transaction references.
+
+Requirements:
+- Use only fields actually returned by the backend.
+- Display monetary values in INR using integer-paise formatting utilities.
+- Display UTC timestamps in the project's existing Asia/Kolkata date/time convention.
+- Handle loading, empty statement, API error, and retry states.
+- Make it easy to close the statement and return to the member directory.
+- Do not fabricate missing history or use mock data.
+
+### 3. Record a fee payment
+Add a **Record Payment** action in the member statement view or member actions area.
+
+The form should:
+- Accept an amount in rupees and an optional note, according to the verified backend schema.
+- Validate the amount before submission and convert it to integer paise using the existing utility or a safe reusable helper.
+- Reject zero, negative, malformed, or unsupported-precision amounts.
+- Avoid floating-point arithmetic for monetary calculations.
+- Explain that an overpayment may be recorded without creating a negative fee balance, if this matches the actual backend behavior.
+- Disable submission while processing and prevent duplicate requests.
+- Show backend validation and business-rule errors clearly.
+- On success, close/reset the payment form, show a success message, and refresh the statement and member balance from the server.
+
+### 4. Reliability and accessibility
+- Handle network failures and structured `ApiClientError` responses.
+- Avoid stale asynchronous updates when switching members or closing the statement.
+- Use accessible form labels, keyboard controls, visible focus indicators, and responsive styling.
+- Preserve the existing item catalogue, item creation, maintenance actions, member directory, registration, suspension, reinstatement, and deletion behavior.
+- Add unit tests for any new reusable payment validation utility.
+- Avoid adding dependencies unless genuinely necessary.
+
+### 5. Documentation and constraints
+- Append a complete new entry to `PROMPTS.md` using the next entry number. Preserve all previous entries.
+- Do not modify backend code, database migrations, `README.md`, or `SUBMISSION.md`.
+- Do not stage, commit, or push anything yet.
+- Do not claim live integration testing if the backend or database is unavailable.
+
+### 6. Verification
+Run:
+- `npm test`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
+### 7. Report and stop
+Report the files changed, statement/payment features implemented, test results, build results, and any unresolved issues. Stop after reporting.
+
+</details>
+
+## Entry 58
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-21
+- **Prompt:** Implement Loan Listing, Equipment Reservations, and Checkout in the Equipment Rental Desk Frontend. Continue working in the existing repository. Add a "Loans" navigation section alongside Equipment Catalogue and Member Directory. Show a paginated loan list using the existing loan-list API (displaying Loan ID, Member ID, Item ID, status badge, timestamps in IST, and fee charged in INR). Include loading, empty, error, retry, and refresh states with stale-response prevention. Add a "Reserve Equipment" action with an accessible modal form selecting an active member and an available item from real API data, validating required positive integer IDs, handling backend domain/business rule errors, and refreshing item/loan lists on success. Add a "Check Out" action visible only for loans whose status is RESERVED, confirm checkout, disable actions while pending, handle expired reservations (RESERVATION_EXPIRED), and refresh loans and items. Add unit tests for reusable validation logic. Verify with `npm test`, `npm run typecheck`, `npm run build`, and `git diff --check`. Append Entry 58 to `PROMPTS.md`.
+- **Answer:** Implemented `validateReservationForm` in `frontend/src/api/utils.ts` to validate required positive integer IDs for member and item selections. Added 2 focused unit test suites covering reservation form validation in `frontend/tests/utils.test.ts` (bringing total unit tests to 20/20 passing). Added a "Loans & Reservations" navigation tab in `frontend/src/App.tsx`. Built the paginated Loans Directory with status filtering (RESERVED, CHECKED_OUT, RETURNED, CANCELLED), member ID filter, item ID filter, and page navigation with debouncing and race-condition guards. Implemented the "Reserve Equipment" modal dialog fetching active members and available equipment via real API calls (`GET /members?status=ACTIVE` and `GET /items?status=AVAILABLE`), with live member debt display, item replacement value display, domain error handling, and post-creation refresh. Implemented the "Check Out" action exclusively for loans in RESERVED status, providing confirmation, busy-state prevention, error presentation for expired reservations or invalid transitions, and success notifications with list refreshes. Styled loan tables, checkout buttons, and subtle badges in `frontend/src/styles.css`. Verified with `npm test`, `npm run typecheck`, `npm run build`, and `git diff --check`.
+- **What I did:** Implemented complete loan listing, equipment reservation modal, and checkout workflow in the frontend connected to verified backend endpoints, with validation unit tests, responsive styling, and Entry 58 appended to `PROMPTS.md`.
+- **Files changed:** `frontend/src/App.tsx`, `frontend/src/api/utils.ts`, `frontend/src/styles.css`, `frontend/tests/utils.test.ts`, and `PROMPTS.md`.
+
+<details>
+<summary>Full prompt text (Entry 58)</summary>
+
+## Task: Implement Loan Listing, Equipment Reservations, and Checkout
+
+Continue the existing Equipment Rental Desk project. Implement only the loan listing, reservation, and checkout frontend features in this task.
+
+### 1. Inspect before editing
+- Read `frontend/src/App.tsx`, `frontend/src/api/client.ts`, `frontend/src/api/types.ts`, `frontend/src/api/utils.ts`, and relevant CSS.
+- Inspect the backend loan router, schemas, and services to verify exact endpoint contracts, request fields, response fields, state transitions, validation, and error codes.
+- Check the current `PROMPTS.md` to determine the next entry number.
+- Reuse the existing typed API client. Add methods only if a verified backend endpoint is missing.
+
+### 2. Loan directory
+Add a **Loans** navigation section alongside Equipment Catalogue and Member Directory.
+
+Show a paginated loan list using the existing loan-list API. Display available fields such as:
+- Loan ID.
+- Member and item IDs or names, using actual response data.
+- Current loan status.
+- Reservation, checkout, due, and return timestamps where supplied.
+- Late fees where supplied.
+
+Requirements:
+- Use only fields actually returned by the backend.
+- Use the backend-supported filters and pagination parameters.
+- Display timestamps in Asia/Kolkata time using existing utilities.
+- Format money through the existing integer-paise formatting utility.
+- Include loading, empty, error, retry, and refresh states.
+- Prevent stale responses when filters or navigation change.
+
+### 3. Reserve equipment
+Add a **Reserve Equipment** action with an accessible form or modal.
+
+The form should:
+- Allow selecting a member and an available item using real API data.
+- Clearly identify each selection so users can choose the correct member and item.
+- Use the verified `POST /loans/reserve` request contract.
+- Validate required selections and prevent duplicate submissions.
+- Show backend business-rule errors clearly, including member restrictions, unavailable items, active-loan limits, and fee-balance restrictions when returned by the backend.
+- On success, close/reset the form, show a notification, and refresh the relevant item and loan lists.
+
+Do not duplicate backend business-rule calculations in the frontend. Treat the backend as authoritative.
+
+### 4. Checkout
+- Show a **Check Out** action only for loans whose actual backend status permits checkout.
+- Confirm checkout where appropriate.
+- Use the existing verified checkout API method.
+- Disable actions while requests are pending and prevent duplicate requests.
+- On success, show confirmation and refresh the loan and item lists.
+- Handle expired reservations and invalid transitions through backend error responses.
+
+### 5. Reliability and accessibility
+- Preserve all existing catalogue, item maintenance, member management, statement, and payment functionality.
+- Reuse existing UI components, notification patterns, and styling.
+- Keep keyboard interaction, labels, visible focus, and mobile responsiveness accessible.
+- Add focused unit tests if new reusable validation logic is introduced.
+- Do not add mock business data or unnecessary dependencies.
+- Do not modify backend code, database migrations, `README.md`, or `SUBMISSION.md`.
+- Append a complete entry to `PROMPTS.md` using the next entry number.
+- Do not stage, commit, or push changes yet.
+
+### 6. Verification
+Run from `frontend/`:
+- `npm test`
+- `npm run typecheck`
+- `npm run build`
+
+Run `git diff --check` from the repository root. Report whether the backend was available for live integration testing; do not claim tests that were not performed.
+
+### 7. Report and stop
+Report the files changed, features implemented, test/typecheck/build results, and unresolved issues. Stop after reporting.
+
+</details>
+
+## Entry 59
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-21
+- **Prompt:** Implement Loan Returns, Reservation Cancellation, and Overdue Management in the Equipment Rental Desk frontend. Continue working in the existing repository. Build on the Loans & Reservations section without breaking existing functionality. Show a "Return" action only for loans whose status allows returning (CHECKED_OUT), confirm before submitting, call the verified return endpoint, display backend-calculated late fee or return details, refresh loan list, equipment catalogue, and affected member balance/statement, and prevent duplicate submissions while pending. Show "Cancel Reservation" only for loans in RESERVED status, confirm, call the verified cancellation endpoint, refresh loans and items, and handle backend domain errors. Add an overdue view/filter using the verified `GET /loans/overdue` endpoint with pagination and member/item filters, displaying actual response data with IST timestamps and INR currency, distinguishing overdue loans with status badges and explanatory callouts, with loading, empty, error, retry, and refresh states without inventing fees in the frontend. Preserve all existing features, add focused unit tests for reusable logic, append Entry 59 to `PROMPTS.md`. Verify with `npm test`, `npm run typecheck`, `npm run build`, and `git diff --check`.
+- **Answer:** Implemented `isLoanActionAllowed(status, action)` in `frontend/src/api/utils.ts` and added unit test suite in `frontend/tests/utils.test.ts` (all 21 unit tests passing). Updated `frontend/src/App.tsx` with: (1) `loanViewMode` state switching between "All Loans & History" (`GET /loans`) and "⚠️ Overdue Loans Only" (`GET /loans/overdue`) with accessible subtabs, dynamic banner, and disabled/informative status filter; (2) Overdue loans loader with pagination (`limit`, `offset`), debounced member ID and item ID filters, and race-condition guards; (3) Distinct overdue badge styling (`.status-overdue`) and status label in overdue view; (4) Return equipment action (`handleReturnLoan`) enabled exclusively for `CHECKED_OUT` loans, confirming action, invoking `returnLoan(loan.id)`, displaying backend-assessed late fees in INR or zero-fee confirmation in global notifications, and triggering refreshes for loans, items, members, and open statements; (5) Cancel reservation action (`handleCancelLoan`) enabled exclusively for `RESERVED` loans, confirming action, invoking `cancelLoan(loan.id)`, releasing items back to available, and refreshing state; (6) Styled `.btn-action-return`, `.btn-action-cancel`, `.status-overdue`, `.action-button-group`, `.loan-tabs-header`, and `.overdue-banner` in `frontend/src/styles.css`. Verified with `npm test`, `npm run typecheck`, `npm run build`, and `git diff --check`.
+- **What I did:** Implemented complete loan return workflow with backend late-fee display, reservation cancellation workflow with item restoration, and overdue loans management view using `GET /loans/overdue`, with unit tests and Entry 59 appended to `PROMPTS.md`.
+- **Files changed:** `frontend/src/App.tsx`, `frontend/src/api/utils.ts`, `frontend/src/styles.css`, `frontend/tests/utils.test.ts`, and `PROMPTS.md`.
+
+<details>
+<summary>Full prompt text (Entry 59)</summary>
+
+## Task: Implement Loan Returns, Reservation Cancellation, and Overdue Management
+
+Continue the existing Equipment Rental Desk frontend. Build on the current Loans & Reservations section without breaking existing functionality.
+
+### 1. Inspect before editing
+- Read the existing loan-related UI, API client/types, utilities, and CSS.
+- Inspect the backend loan router, schemas, services, and fee calculation logic.
+- Verify the exact return/cancel endpoints, permitted status transitions, late-fee response fields, overdue filters, and error codes.
+- Check PROMPTS.md and use the next entry number.
+
+Do not invent endpoint contracts or business rules.
+
+### 2. Return equipment
+- Show a **Return** action only for loans whose actual backend status allows returning.
+- Confirm the return action before submitting.
+- Call the existing typed API client method for the verified return endpoint.
+- Display the backend-calculated fee or return details if provided by the response.
+- Refresh the loan list, equipment catalogue, and any affected member balance/statement data where appropriate.
+- Handle invalid state transitions, already-returned loans, and API/network errors clearly.
+- Prevent duplicate submissions while an action is pending.
+
+### 3. Cancel reservations
+- Show **Cancel Reservation** only for loans in a state where the backend permits cancellation.
+- Confirm the action and call the verified cancellation endpoint.
+- Refresh the loan and equipment lists after success.
+- Handle expired reservations and invalid transitions using actual backend error responses.
+
+### 4. Overdue management
+- Add an overdue view or filter using the verified `GET /loans/overdue` endpoint.
+- Use supported query parameters, including pagination and member/item filters where applicable.
+- Display actual returned loan/member/item identifiers, due dates, current status, and fee fields where available.
+- Format timestamps in Asia/Kolkata and money using the existing paise utility.
+- Include loading, empty, error, retry, and refresh states.
+- Clearly distinguish overdue loans from loans that are merely checked out. Do not calculate or invent fees in the frontend when the backend provides authoritative values.
+
+### 5. Reliability and accessibility
+- Preserve the catalogue, item maintenance, member management, statements, payments, reservations, checkout, and existing filters.
+- Use the current typed API client; add methods only if a verified endpoint is missing.
+- Avoid stale responses and duplicate requests.
+- Maintain accessible labels, keyboard interactions, focus indicators, and responsive layout.
+- Add focused unit tests only if new reusable logic is introduced. Do not add unnecessary dependencies.
+
+### 6. Documentation and constraints
+- Append a complete entry to PROMPTS.md using the next entry number, preserving previous entries.
+- Do not modify backend code, migrations, README.md, or SUBMISSION.md.
+- Do not stage, commit, or push changes yet.
+- If the backend is unavailable, report that live integration testing could not be performed.
+
+### 7. Verification
+Run from frontend/:
+- `npm test`
+- `npm run typecheck`
+- `npm run build`
+
+Run `git diff --check` from the repository root.
+
+### 8. Report and stop
+Report files changed, return/cancellation/overdue features implemented, test and build results, and unresolved issues. Stop after reporting.
+
+</details>
+
+## Entry 60
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-21
+- **Prompt:** Fix Reservation Loading Errors and Member Balance Refresh: Implement the two confirmed frontend improvements from the read-only audit. (1) Show reservation modal loading failures in `frontend/src/App.tsx` when fetching active members or available items fails, displaying a clear error in the reservation modal, distinguishing API/network failure from an empty response, keeping existing empty-state messages, ensuring failed requests clear stale options, allowing close/reopen and retry, and preserving loading states and request cancellation. (2) Refresh the member directory after payment in `handleRecordPaymentSubmit` via `setMemberRefreshTrigger` while preserving statement refresh and immediate balance update without duplicate submissions or loops. Add focused tests, verify with `npm test`, `npm run typecheck`, `npm run build`, and `git diff --check`.
+- **Answer:** Implemented both confirmed improvements:
+  1. Reservation modal loading failures (`App.tsx`):
+     - Extracted `loadReserveOptions` with cancellation support using `reserveOptionsAbortControllerRef`.
+     - Explicitly resets `activeMembersForReserve` and `availableItemsForReserve` prior to fetching and upon any rejection, guaranteeing no stale options linger from previous modal visits or failed attempts.
+     - Distinguishes API/network errors (`ApiClientError` / `Error`) from empty responses (`[]`), surfacing the formatted error in the modal body and adding an accessible "Retry" button (`.btn-alert-retry`).
+     - Updated dropdown placeholders to indicate "Failed to load active members" and "Failed to load available equipment" on fetch failure, while preserving "No active members available" and "No available items..." when options legitimately resolve empty.
+     - Updated `handleCloseReserveModal` to abort in-flight option fetches, reset loading flags, and clear stale state. Added unmount cleanup.
+  2. Member balance directory refresh (`App.tsx`):
+     - In `handleRecordPaymentSubmit`, added `setMemberRefreshTrigger((prev) => prev + 1)` alongside the existing statement refresh and optimistic balance updates.
+     - Triggers automatic directory refetch across the current page and status filter without duplicate submissions or refresh loops.
+  3. Testing & styling (`client.test.ts`, `styles.css`):
+     - Added `.btn-alert-retry` in `styles.css`.
+     - Added unit test in `frontend/tests/client.test.ts` verifying `AbortSignal` handling on option fetching and typed `ApiClientError` propagation across concurrent failures.
+     - All 22 tests pass; typecheck and production build compile cleanly with 0 errors; `git diff --check` passes with 0 issues.
+- **What I did:** Implemented robust reservation option failure states, option clearing, retry action, cancellation guards, and automated post-payment member directory refresh with unit test verification and clean quality checks.
+- **Files changed:** `frontend/src/App.tsx`, `frontend/src/styles.css`, `frontend/tests/client.test.ts`, and `PROMPTS.md`.
+
+<details>
+<summary>Full prompt text (Entry 60)</summary>
+
+## Task: Fix Reservation Loading Errors and Member Balance Refresh
+
+Implement the two confirmed frontend improvements from the read-only audit.
+
+### 1. Show reservation modal loading failures
+
+Inspect `frontend/src/App.tsx`, especially `handleOpenReserveModal`.
+
+Currently, if fetching active members or available items fails, the error is silently ignored.
+
+Requirements:
+- Display a clear error in the reservation modal when either request fails.
+- Distinguish a genuine API/network failure from a successful response containing no active members or available items.
+- Keep the existing empty-state messages for successful responses with no options.
+- Ensure a failed request does not leave stale member or item options from a previous attempt.
+- Allow the user to close and reopen the modal or retry the operation.
+- Preserve existing loading states, request cancellation, validation, and reservation behavior.
+- Follow the existing error-handling conventions and avoid exposing sensitive information.
+
+### 2. Refresh the member directory after payment
+
+Inspect `handleRecordPaymentSubmit` in `frontend/src/App.tsx`.
+
+After a payment succeeds:
+- Preserve the existing statement refresh and immediate balance update.
+- Also trigger the member directory refresh using the existing `setMemberRefreshTrigger` mechanism.
+- Ensure the change does not cause duplicate payment submissions or unnecessary refresh loops.
+- Preserve the current success notification and backend error handling.
+
+### 3. Tests and prompt log
+
+Add or update focused tests if the relevant behavior can be tested with the existing test setup. Do not add dependencies.
+
+Append the next correctly numbered entry to `PROMPTS.md`, documenting the task, implementation, tests, and verification results.
+
+### 4. Verification
+
+Run these commands from `frontend/`:
+
+```bash
+npm test
+npm run typecheck
+npm run build
+```
+
+Also run `git diff --check` from the repository root.
+
+### Constraints
+
+- Do not modify backend code, database migrations, `.env`, `.env.example`, README, or SUBMISSION.
+- Do not add unrelated features or refactor unrelated components.
+- Do not stage, commit, or push changes.
+- Do not claim live integration testing unless you actually run the frontend against a running backend.
+- Report the changed files, tests and results, any unresolved issues, and whether the backend was available.
+
+Stop after completing this task and reporting the results.
+
+</details>
+
+## Entry 61
+
+- **Tool:** Google Antigravity
+- **Date:** 2026-10-21
+- **Prompt:** Add Focused Frontend Edge-Case Tests: Add tests for important edge cases identified during the read-only audit. (1) Item form validation: Verify item name and category reject newlines per SingleLineText schema, optional condition note accepts multiline text per NoteText schema, and existing valid item inputs pass. (2) Payment validation boundaries: Add tests for validatePaymentForm covering 0 paise balance rejection, 1 paise balance acceptance of ₹0.01, rejection of >2 decimal places, rejection of amounts exceeding outstanding balance, and maximum integer-paise limits without float arithmetic. (3) API client cancellation behavior: Verify already-aborted AbortSignal propagates as AbortError, aborted requests are not converted to ApiClientError with NETWORK_ERROR, and ordinary network failures produce typed ApiClientError. (4) Query-string encoding: Verify fetchItems({ q: "drill & hammer" }) URL-encodes the value and does not treat ampersand as a parameter separator. (5) Verification: Run npm test, npm run typecheck, npm run build, and git diff --check. Full prompt below.
+- **Answer:** Implemented comprehensive edge-case test coverage and minimal production code refinement:
+  1. Item form validation (`utils.test.ts`):
+     - Added edge-case test suite verifying that `name` and `category` reject newline characters (`\n`, `\r`, `\r\n`) in line with backend `SingleLineText`.
+     - Verified that optional `condition_note` accepts multiline text (`\n`, `\r\n`) and tabs (`\t`) in line with backend `NoteText`.
+     - Confirmed valid item inputs and replacement value parsing continue to pass.
+  2. Payment validation boundaries (`utils.test.ts`):
+     - Added boundary edge-case test suite for `validatePaymentForm`:
+       - Exact 0-paise balance: rejected with clear zero-balance message.
+       - Exact 1-paise balance: accepts exact ₹0.01 (`parsedPaise: 1`), rejects ₹0.02 as an overpayment.
+       - Decimal precision: rejects amounts with >2 decimal places (`0.001`, `25.1234`).
+       - Overpayment: rejects payments exceeding member's outstanding balance.
+       - Maximum integer-paise boundary (`2147483647` paise / ₹21,474,836.47) and non-positive amounts verified with zero float arithmetic.
+  3. API client cancellation & error handling (`client.ts`, `client.test.ts`):
+     - In `client.ts`, refined `request` to check `options?.signal?.aborted` before dispatching `fetch` to immediately throw `AbortError`.
+     - In `catch`, ensured any abort during execution propagates as `AbortError` and is not converted into `ApiClientError` with `NETWORK_ERROR`.
+     - Retained `ApiClientError` (`NETWORK_ERROR`, status 0) for ordinary network failures.
+     - Added deterministic unit tests in `client.test.ts` validating pre-aborted signal propagation, in-flight cancellation distinction, and network error classification.
+  4. Query-string encoding (`client.test.ts`):
+     - Added test for `fetchItems({ q: "drill & hammer" })` verifying `%26` encoding and confirming ampersand is not treated as a parameter delimiter.
+  5. Quality checks:
+     - `npm test`: all 26 tests passed (0 failed).
+     - `npm run typecheck`: 0 errors.
+     - `npm run build`: built in 2.42s (0 errors).
+     - `git diff --check`: 0 whitespace errors.
+- **What I did:** Added focused edge-case tests across item form validation, payment boundary constraints, query-string encoding, and API client cancellation handling, refining signal abort dispatch in `client.ts`.
+- **Files changed:** `frontend/src/api/client.ts`, `frontend/tests/client.test.ts`, `frontend/tests/utils.test.ts`, and `PROMPTS.md`.
+
+<details>
+<summary>Full prompt text (Entry 61)</summary>
+
+## Task: Add Focused Frontend Edge-Case Tests
+
+Add tests for important edge cases identified during the read-only audit. Keep this task limited to test coverage and any minimal production-code correction strictly required by a failing test.
+
+### 1. Item form validation
+
+Inspect `validateItemForm` in `frontend/src/api/utils.ts` and the existing tests in `frontend/tests/utils.test.ts`.
+
+Verify:
+- Item name and category reject newline characters if required by the backend's `SingleLineText` schema.
+- An optional condition note accepts multiline text if the backend's `NoteText` schema permits it.
+- Existing valid item inputs and replacement-value validation continue to pass.
+
+Use the actual backend schema as the source of truth.
+
+### 2. Payment validation boundaries
+
+Add tests for `validatePaymentForm` covering:
+- A member balance of exactly `0` paise: payment must be rejected.
+- A member balance of `1` paise: a valid payment of `₹0.01` should be accepted.
+- Payment amounts with more than two decimal places must be rejected.
+- Payment amounts exceeding the outstanding balance must be rejected.
+- Existing valid payments and maximum integer-paise limits remain correct.
+
+Do not use floating-point arithmetic for monetary calculations.
+
+### 3. API client cancellation behavior
+
+Inspect `frontend/src/api/client.ts` and `frontend/tests/client.test.ts`.
+
+Add tests verifying that:
+- An already-aborted `AbortSignal` is propagated as an `AbortError`.
+- An aborted request is not incorrectly converted into an `ApiClientError` with `NETWORK_ERROR`.
+- Ordinary network failures still produce the expected typed `ApiClientError`.
+
+Ensure tests are deterministic and do not require a running backend.
+
+### 4. Query-string encoding
+
+Add a test for `fetchItems({ q: "drill & hammer" })` verifying that the query value is URL-encoded correctly and the ampersand is not treated as a parameter separator. Follow the existing query-string encoding conventions.
+
+### 5. Implementation and verification
+
+- Prefer adding tests without changing production code.
+- If a test reveals a genuine defect, make only the smallest necessary fix and explain it in the report.
+- Append the next sequential entry to `PROMPTS.md`, accurately documenting the work and results.
+- Do not add dependencies.
+- Do not modify backend code, migrations, `.env`, `.env.example`, README, or SUBMISSION.
+- Do not stage, commit, or push.
+
+Run from `frontend/`:
+
+```bash
+npm test
+npm run typecheck
+npm run build
+```
+
+Also run `git diff --check` from the repository root.
+
+Report the test count and results, changed files, any production-code fixes, and unresolved issues. Do not claim live integration testing. Stop after the report.
+
+</details>
