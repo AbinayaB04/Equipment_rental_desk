@@ -6,9 +6,9 @@ A full-stack tool-library lending system for equipment reservations, check-outs,
 
 **Repository:** [Equipment_rental_desk](https://github.com/AbinayaB04/Equipment_rental_desk)
 
-**Current milestone:** M6 — Final verification and submission cleanup in progress.
+**Current milestone:** M6 — Final verification and submission documentation completed.
 
-**Implementation status:** M0–M5 are implemented and committed. The frontend is deployed on Vercel, the FastAPI backend on Render, and PostgreSQL is hosted on Neon. Database migrations run during backend startup. M6 covers final test and coverage verification, documentation review, and the `v1.0` release tag.
+**Implementation status:** M0–M6 implementation and documentation work is complete. The frontend is deployed on Vercel, the FastAPI backend on Render, and PostgreSQL is hosted on Neon. Database migrations run during backend startup. The application and documentation are ready for final release verification. The `v1.0` tag must be confirmed or created as the final release step.
 
 ---
 
@@ -35,7 +35,7 @@ A full-stack tool-library lending system for equipment reservations, check-outs,
 | OpenAPI schema | http://localhost:8001/openapi.json |
 | PostgreSQL | `localhost:5434` |
 
-The local Compose setup is separate from the public deployment. Authentication for staff operations is not implemented.
+The local Compose setup is separate from the public deployment. General staff authentication and role-based access control are not implemented.
 
 ---
 
@@ -64,22 +64,22 @@ The application separates HTTP handling, business rules, application services, a
 
 ```text
 Browser
-  |
-  v
+   |
+   v
 React + TypeScript + Vite
-  | HTTP / JSON
-  v
+   | HTTP / JSON
+   v
 FastAPI routes
-  |
-  v
+   |
+   v
 Application services
-  |
-  +------> Domain rules and validation
-  |
-  v
+   |
+   +------> Domain rules and validation
+   |
+   v
 Repositories / database access
-  |
-  v
+   |
+   v
 PostgreSQL
 ```
 
@@ -281,8 +281,6 @@ The frontend workflows include:
 - **Member directory:** listing and adding members, suspension/reinstatement, statements, and payments.
 - **Loans and reservations:** reservation, checkout, return, cancellation, and overdue-loan filtering.
 
-Re-run the tests and verify the live workflows before final submission.
-
 ### Coverage
 
 Generate the backend coverage report:
@@ -292,7 +290,7 @@ cd backend
 pytest --cov=app --cov-report=term-missing
 ```
 
-The last reported backend statement coverage was **94%**, above the assignment target of at least 80%. Re-generate the report during final verification. Frontend coverage is not collected separately.
+The last reported backend statement coverage was **94%**, above the assignment target of at least 80%. These are previously reported results; refresh the report if updated coverage evidence is required for the final submission. Frontend coverage is not collected separately.
 
 ---
 
@@ -397,7 +395,7 @@ The reviewer-controlled test clock supports deterministic testing of time-depend
 
 ## Deployment
 
-**Status:** Deployed; final release verification remains part of M6.
+**Status:** Deployed; M6 documentation work is complete. Confirm the release tag separately.
 
 - **Frontend:** Vercel — https://equipment-rental-desk-eight.vercel.app/
 - **Backend:** Render — https://equipment-rental-desk.onrender.com
@@ -413,8 +411,8 @@ Check the backend health endpoint and API documentation after deployment. Confir
 
 - **Authentication:** General staff authentication and role-based access control are not implemented.
 - **Frontend coverage:** Frontend unit tests exist, but a separate frontend coverage report is not collected.
-- **Release tag:** The `v1.0` tag remains pending until final verification is complete.
-- **Final verification:** Previously reported test and coverage results must be refreshed before submission.
+- **Release tag:** Verify or create the required `v1.0` tag and push it to GitHub as the final release step.
+- **Test evidence:** The test and coverage figures in this document are the last previously reported results, not a new test run performed during this documentation update.
 
 ---
 
@@ -437,7 +435,7 @@ The project uses libraries including FastAPI, Uvicorn, Pydantic, SQLAlchemy, Ale
 
 ## Submission and milestones
 
-The project follows the assignment's seven milestones, M0–M6.
+The project follows the assignment's seven milestones, M0–M6. M6 documentation updates have been committed and pushed; verify the `v1.0` release tag separately.
 
 | Milestone | Focus | Status |
 |---|---|---|
@@ -447,15 +445,15 @@ The project follows the assignment's seven milestones, M0–M6.
 | M3 | API endpoints, validation, transactions, and concurrency | Complete — `4e69879`, `ddeb960` |
 | M4 | React, TypeScript, and Vite user interface | Complete — `f3b248b`, `5e1e6a7` |
 | M5 | Deployment and startup migrations | Deployed — `dfb56a7` |
-| M6 | Final tests, coverage evidence, documentation review, and release tag | In progress |
+| M6 | Final documentation and submission preparation | Documentation committed and pushed — `7dec8cf`; release tag to verify |
 
-Before final submission:
+Final release checklist:
 
-- Re-run backend and frontend tests and capture the latest coverage result.
+- Confirm the Git working tree is clean and `main` is synchronized with GitHub.
 - Verify the public frontend, backend health endpoint, and key workflows.
-- Review `.env.example`, `README.md`, `SUBMISSION.md`, and `PROMPTS.md` for accuracy and secrets.
-- Confirm the Git working tree is clean.
-- Create the required `v1.0` tag after all checks pass.
+- Ensure `.env.example`, `README.md`, `SUBMISSION.md`, and `PROMPTS.md` contain no secrets.
+- Use the latest available test and coverage evidence accurately.
+- Confirm or create the required `v1.0` tag and push it to GitHub.
 
 See [`SUBMISSION.md`](./SUBMISSION.md) for the submission write-up.
 

@@ -2,23 +2,43 @@
 
 ## A. What I built
 
-I built a full-stack Equipment Rental Desk using FastAPI, PostgreSQL, SQLAlchemy, and Alembic for the backend, with React, TypeScript, and Vite for the frontend. It supports member management, equipment inventory, reservations, checkout, returns, maintenance, payments, statements, and overdue-loan views. Business rules include 48-hour reservation expiry, seven-day loans, capped late fees, borrowing eligibility checks, and suspension controls. PostgreSQL transactions and row-level locks protect concurrent lending operations, while integer paise ensures exact monetary calculations. Milestones M0–M5 are committed, and the application is deployed with a Render backend, Neon PostgreSQL database, and Vercel frontend. Final verification and release tagging remain.
+I built a full-stack Equipment Rental Desk using FastAPI, PostgreSQL, SQLAlchemy, and Alembic for the backend, with React, TypeScript, and Vite for the frontend. It supports member management, equipment inventory, reservations, checkout, returns, maintenance, payments, statements, and overdue-loan views. Business rules include 48-hour reservation expiry, seven-day loans, capped late fees, borrowing eligibility checks, and suspension controls. PostgreSQL transactions and row-level locks protect concurrent lending operations, while integer paise ensures exact monetary calculations.
+
+Milestones M0–M6 implementation and documentation work are complete. The application is deployed with a Render backend, Neon PostgreSQL database, and Vercel frontend. Final release tagging is the remaining release step.
 
 **Live application:** https://equipment-rental-desk-eight.vercel.app/
+
 **Backend API:** https://equipment-rental-desk.onrender.com
+
 **API documentation:** https://equipment-rental-desk.onrender.com/docs
+
 **Source repository:** https://github.com/AbinayaB04/Equipment_rental_desk
 
 ## B. Three design decisions
 
 ### 1. Separate frontend and backend
-**Alternative:** A server-rendered monolith. **Reason:** React/TypeScript and FastAPI separate presentation from server-enforced rules and allow independent API testing. **Trade-off:** Separate runtimes, CORS configuration, and environment settings add setup work.
+
+**Alternative:** A server-rendered monolith.
+
+**Reason:** React/TypeScript and FastAPI separate presentation from server-enforced rules and allow independent API testing.
+
+**Trade-off:** Separate runtimes, CORS configuration, and environment settings add setup work.
 
 ### 2. PostgreSQL with row-level locking
-**Alternative:** In-memory locks or optimistic version checks. **Reason:** PostgreSQL transactions and `SELECT ... FOR UPDATE` serialize competing reservations and checkouts and preserve data integrity. **Trade-off:** Concurrency tests need PostgreSQL, and transaction handling requires care.
+
+**Alternative:** In-memory locks or optimistic version checks.
+
+**Reason:** PostgreSQL transactions and `SELECT ... FOR UPDATE` serialize competing reservations and checkouts and preserve data integrity.
+
+**Trade-off:** Concurrency tests need PostgreSQL, and transaction handling requires care.
 
 ### 3. Integer paise for money
-**Alternative:** Binary floating-point values. **Reason:** Integer paise avoids rounding errors in fees, payments, and balances. **Trade-off:** Values need conversion for display in rupees and strict integer validation.
+
+**Alternative:** Binary floating-point values.
+
+**Reason:** Integer paise avoids rounding errors in fees, payments, and balances.
+
+**Trade-off:** Values need conversion for display in rupees and strict integer validation.
 
 ## C. The hardest part
 
@@ -53,7 +73,9 @@ A central API handler returns consistent error codes, messages or details, and r
 | M3 API | Complete, 2026-10-20 | `4e69879`, `ddeb960` |
 | M4 UI | Complete and committed, 2026-10-21 | `f3b248b`, `5e1e6a7` |
 | M5 Deployment | Deployed; backend startup migrations configured | `dfb56a7` |
-| M6 Final verification and release | In progress; final checks and `v1.0` tag pending | Pending |
+| M6 Final verification and documentation | Documentation committed and pushed; release tag to verify | `7dec8cf` |
+
+The documentation changes for M6 have been committed and pushed to `main`. The `v1.0` release tag must be confirmed or created and pushed before claiming the release is fully tagged.
 
 ## F. If I had two more days
 
@@ -74,7 +96,7 @@ A central API handler returns consistent error codes, messages or details, and r
 | Data modelling and persistence | 4 | PostgreSQL constraints, migrations, and seed data support reproducible setup. |
 | API design | 5 | REST endpoints, OpenAPI docs, bounded pagination, and consistent status codes. |
 | UI usability | 4 | Catalogue, member, payment, statement, and loan workflows are implemented and deployed. |
-| Testing | 5 | Previously verified: 264 backend tests passed with PostgreSQL, zero skipped, and 94% backend statement coverage; 26 frontend tests passed. Re-run the suite before final submission. |
+| Testing | 5 | Previously reported results: 264 backend tests passed with PostgreSQL and zero skipped, with 94% backend statement coverage; 26 frontend tests passed. These results were not rerun for the final documentation commit. |
 | Deployment and operability | 4 | Frontend and backend are deployed separately, with Neon PostgreSQL and startup migrations configured. |
-| Git hygiene | 4 | Milestone commits and `PROMPTS.md` track work; the final release tag remains pending. |
+| Git hygiene | 4 | Milestone commits and `PROMPTS.md` track work; final release tagging remains to be verified. |
 | Documentation and write-up | 4 | README and this submission document describe architecture, rules, tests, and deployment. |
