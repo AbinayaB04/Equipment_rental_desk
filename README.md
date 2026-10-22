@@ -411,7 +411,6 @@ Check the backend health endpoint and API documentation after deployment. Confir
 
 - **Authentication:** General staff authentication and role-based access control are not implemented.
 - **Frontend coverage:** Frontend unit tests exist, but a separate frontend coverage report is not collected.
-- **Release tag:** Verify or create the required `v1.0` tag and push it to GitHub as the final release step.
 - **Test evidence:** The test and coverage figures in this document are the last previously reported results, not a new test run performed during this documentation update.
 
 ---
@@ -447,18 +446,9 @@ The project follows the assignment's seven milestones, M0–M6. M6 documentation
 | M5 | Deployment and startup migrations | Deployed — `dfb56a7` |
 | M6 | Final documentation and submission preparation | Documentation committed and pushed — `7dec8cf`; release tag to verify |
 
-Final release checklist:
 
-- Confirm the Git working tree is clean and `main` is synchronized with GitHub.
-- Verify the public frontend, backend health endpoint, and key workflows.
-- Ensure `.env.example`, `README.md`, `SUBMISSION.md`, and `PROMPTS.md` contain no secrets.
-- Use the latest available test and coverage evidence accurately.
-- Confirm or create the required `v1.0` tag and push it to GitHub.
 
 See [`SUBMISSION.md`](./SUBMISSION.md) for the submission write-up.
 
 ---
 
-## License
-
-This repository was created for the KJBN Labs Software Engineering Internship take-home assignment. No separate open-source license has been declared.
